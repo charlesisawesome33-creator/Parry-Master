@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parry Master: Training Arena</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="game-container">
+        <div id="ui-layer">
+            <div id="boss-info">
+                <span id="level-display">SELECT STAGE TO START</span>
+                <div id="boss-hp-bar"><div id="boss-hp"></div></div>
+            </div>
+            <div id="player-hp">HP: ❤️❤️❤️</div>
+            <div id="score">Parries: 0</div>
+        </div>
+        <canvas id="gameCanvas" width="800" height="400"></canvas>
+        <div id="instructions">Select an opponent below and press <strong>SPACEBAR</strong> to start!</div>
+        <div id="game-over-screen" class="hidden">
+            <h1 id="game-over-title">GAME OVER</h1>
+            <p id="game-over-sub">Press R to Restart</p>
+        </div>
+    </div>
+
+    <!-- LEVEL SELECTOR PANEL -->
+    <div id="selector-panel">
+        <button class="stage-btn" onclick="selectStage(1)">ST1: BRUTE</button>
+        <button class="stage-btn" onclick="selectStage(2)">ST2: TWIN</button>
+        <button class="stage-btn" onclick="selectStage(3)">ST3: TRIAD</button>
+        <button class="stage-btn" onclick="selectStage(4)">ST4: CHAOS</button>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+</html>
