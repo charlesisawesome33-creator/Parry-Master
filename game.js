@@ -10,32 +10,36 @@ let badges = JSON.parse(localStorage.getItem('parry_badges')) || [];
 let ownedShields = JSON.parse(localStorage.getItem('parry_shields')) || ['default'];
 let ownedHelmets = JSON.parse(localStorage.getItem('parry_helmets')) || ['recruit'];
 
+// Player color (cyan/blue theme)
+const PLAYER_COLOR = '#66fcf1';
+const PLAYER_GLOW = '#88ffff';
+
 const L_DATA = {
-    1: {hp: 100, spd: 5, col: '#ff4d4d', t: "ST1: BRUTE", dropShield: 'brute', dropHelmet: 'brute'},
-    2: {hp: 120, spd: 6, col: '#bf55ec', t: "ST2: TWIN", dropShield: 'chrono', dropHelmet: 'twin'},
-    3: {hp: 130, spd: 6.5, col: '#3498db', t: "ST3: TRIAD", dropShield: 'resonance', dropHelmet: 'triad'},
-    4: {hp: 150, spd: 7, col: '#f1c40f', t: "ST4: CHAOS", dropShield: 'chaos', dropHelmet: 'chaos'},
-    5: {hp: 200, spd: 8, col: '#e74c3c', t: "FINAL STAGE: ARCHMAGE", dropShield: 'mirror', dropHelmet: 'archmage'}
+    1: {hp: 100, spd: 5, col: '#ff4d4d', glow: '#ff8888', t: "ST1: BRUTE", dropShield: 'brute', dropHelmet: 'brute', startDelay: 45},
+    2: {hp: 120, spd: 6, col: '#bf55ec', glow: '#d98eff', t: "ST2: TWIN", dropShield: 'chrono', dropHelmet: 'twin', startDelay: 50},
+    3: {hp: 130, spd: 6.5, col: '#3498db', glow: '#6ec4ff', t: "ST3: TRIAD", dropShield: 'resonance', dropHelmet: 'triad', startDelay: 55},
+    4: {hp: 150, spd: 7, col: '#f1c40f', glow: '#ffe066', t: "ST4: CHAOS", dropShield: 'chaos', dropHelmet: 'chaos', startDelay: 60},
+    5: {hp: 200, spd: 8, col: '#e74c3c', glow: '#ff7777', t: "FINAL STAGE: ARCHMAGE", dropShield: 'mirror', dropHelmet: 'archmage', startDelay: 70}
 };
 
 // Shield stats
 const SHIELD_STATS = {
-    default: { name: "Default Core", ico: "🔘", desc: "Standard shield. No special bonus.", parryWindow: 0, slow: 0, reflect: 0, healParry: 0, replica: 0, replicaHeal: 0, maxHpBonus: 0 },
-    brute: { name: "Brute's Bulwark", ico: "🔴", desc: "+25% parry window.", parryWindow: 0.25, slow: 0, reflect: 0, healParry: 0, replica: 0, replicaHeal: 0, maxHpBonus: 0 },
-    chrono: { name: "Chrono Deflector", ico: "🟣", desc: "Slows projectiles by 20%.", parryWindow: 0, slow: 0.20, reflect: 0, healParry: 0, replica: 0, replicaHeal: 0, maxHpBonus: 0 },
-    resonance: { name: "Resonance Ward", ico: "🔵", desc: "10% chance to reflect projectile when hit.", parryWindow: 0, slow: 0, reflect: 0.10, healParry: 0, replica: 0, replicaHeal: 0, maxHpBonus: 0 },
-    chaos: { name: "Chaos Core", ico: "🟡", desc: "15% chance to heal 1 heart on parry.", parryWindow: 0, slow: 0, reflect: 0, healParry: 0.15, replica: 0, replicaHeal: 0, maxHpBonus: 0 },
-    mirror: { name: "Cosmic Mirror", ico: "💠", desc: "20% replica + 10% heal on parry.", parryWindow: 0, slow: 0, reflect: 0, healParry: 0, replica: 0.20, replicaHeal: 0.10, maxHpBonus: 0 }
+    default: { name: "Default Core", ico: "🔘", desc: "Standard shield. Parry sends fireball back.", parryWindow: 0, slow: 0, extraDamage: 0, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 0 },
+    brute: { name: "Brute's Bulwark", ico: "🔴", desc: "+25% parry window. Parry sends fireball back.", parryWindow: 0.25, slow: 0, extraDamage: 0, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 0 },
+    chrono: { name: "Chrono Deflector", ico: "🟣", desc: "Slows projectiles by 20%. Parry sends fireball back.", parryWindow: 0, slow: 0.20, extraDamage: 0, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 0 },
+    resonance: { name: "Resonance Ward", ico: "🔵", desc: "Parry sends fireball back + 10% chance for extra damage.", parryWindow: 0, slow: 0, extraDamage: 0.10, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 0 },
+    chaos: { name: "Chaos Core", ico: "🟡", desc: "Parry sends fireball back + 15% chance to heal 1 heart.", parryWindow: 0, slow: 0, extraDamage: 0, healParry: 0.15, extraReplica: 0, extraHeal: 0, maxHpBonus: 0 },
+    mirror: { name: "Cosmic Mirror", ico: "💠", desc: "Parry sends fireball back + 20% chance for extra replica + 10% heal.", parryWindow: 0, slow: 0, extraDamage: 0, healParry: 0, extraReplica: 0.20, extraHeal: 0.10, maxHpBonus: 0 }
 };
 
-// Helmet stats (enhanced versions of shields)
+// Helmet stats
 const HELMET_STATS = {
-    recruit: { name: "Recruit's Sallet", ico: "🪖", desc: "+1 max HP.", parryWindow: 0, slow: 0, reflect: 0, healParry: 0, replica: 0, replicaHeal: 0, maxHpBonus: 1 },
-    brute: { name: "Brute's Horned Helm", ico: "🔴", desc: "+40% parry window.", parryWindow: 0.40, slow: 0, reflect: 0, healParry: 0, replica: 0, replicaHeal: 0, maxHpBonus: 0 },
-    twin: { name: "Twin's Linked Visor", ico: "🟣", desc: "Slows projectiles by 35%.", parryWindow: 0, slow: 0.35, reflect: 0, healParry: 0, replica: 0, replicaHeal: 0, maxHpBonus: 0 },
-    triad: { name: "Triad's Prism Helm", ico: "🔵", desc: "20% chance to reflect projectile when hit.", parryWindow: 0, slow: 0, reflect: 0.20, healParry: 0, replica: 0, replicaHeal: 0, maxHpBonus: 0 },
-    chaos: { name: "Chaos Crown", ico: "🟡", desc: "25% chance to heal 1 heart on parry.", parryWindow: 0, slow: 0, reflect: 0, healParry: 0.25, replica: 0, replicaHeal: 0, maxHpBonus: 0 },
-    archmage: { name: "Archmage's Star-Cap", ico: "💠", desc: "35% replica + 20% heal on parry.", parryWindow: 0, slow: 0, reflect: 0, healParry: 0, replica: 0.35, replicaHeal: 0.20, maxHpBonus: 0 }
+    recruit: { name: "Recruit's Sallet", ico: "🪖", desc: "+1 max HP. Parry sends fireball back.", parryWindow: 0, slow: 0, extraDamage: 0, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 1 },
+    brute: { name: "Brute's Horned Helm", ico: "🔴", desc: "+40% parry window. Parry sends fireball back.", parryWindow: 0.40, slow: 0, extraDamage: 0, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 0 },
+    twin: { name: "Twin's Linked Visor", ico: "🟣", desc: "Slows projectiles by 35%. Parry sends fireball back.", parryWindow: 0, slow: 0.35, extraDamage: 0, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 0 },
+    triad: { name: "Triad's Prism Helm", ico: "🔵", desc: "Parry sends fireball back + 20% chance for extra damage.", parryWindow: 0, slow: 0, extraDamage: 0.20, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 0 },
+    chaos: { name: "Chaos Crown", ico: "🟡", desc: "Parry sends fireball back + 25% chance to heal 1 heart.", parryWindow: 0, slow: 0, extraDamage: 0, healParry: 0.25, extraReplica: 0, extraHeal: 0, maxHpBonus: 0 },
+    archmage: { name: "Archmage's Star-Cap", ico: "💠", desc: "Parry sends fireball back + 35% chance for extra replica + 20% heal.", parryWindow: 0, slow: 0, extraDamage: 0, healParry: 0, extraReplica: 0.35, extraHeal: 0.20, maxHpBonus: 0 }
 };
 
 function getMaxHp() {
@@ -49,12 +53,11 @@ function getActiveStats() {
     const helmet = HELMET_STATS[activeHelmet] || HELMET_STATS.recruit;
     let parryWindow = shield.parryWindow + helmet.parryWindow;
     let slow = shield.slow + helmet.slow;
-    let reflect = shield.reflect + helmet.reflect;
+    let extraDamage = shield.extraDamage + helmet.extraDamage;
     let healParry = shield.healParry + helmet.healParry;
-    let replica = shield.replica + helmet.replica;
-    let replicaHeal = shield.replicaHeal + helmet.replicaHeal;
+    let extraReplica = shield.extraReplica + helmet.extraReplica;
+    let extraHeal = shield.extraHeal + helmet.extraHeal;
     
-    // Synergy detection (matching boss theme)
     const isSynergy = (activeShield === 'brute' && activeHelmet === 'brute') ||
                       (activeShield === 'chrono' && activeHelmet === 'twin') ||
                       (activeShield === 'resonance' && activeHelmet === 'triad') ||
@@ -64,11 +67,11 @@ function getActiveStats() {
     if (isSynergy) {
         if (activeShield === 'brute') parryWindow = 0.60;
         if (activeShield === 'chrono') slow = 0.50;
-        if (activeShield === 'resonance') reflect = 0.30;
+        if (activeShield === 'resonance') extraDamage = 0.30;
         if (activeShield === 'chaos') healParry = 0.35;
-        if (activeShield === 'mirror') { replica = 0.50; replicaHeal = 0.30; }
+        if (activeShield === 'mirror') { extraReplica = 0.50; extraHeal = 0.30; }
     }
-    return { parryWindow, slow, reflect, healParry, replica, replicaHeal, isSynergy };
+    return { parryWindow, slow, extraDamage, healParry, extraReplica, extraHeal, isSynergy };
 }
 
 function updateMaxHp() {
@@ -79,11 +82,17 @@ function updateMaxHp() {
     document.getElementById('player-hp').innerHTML = `HP: ${hearts}`;
 }
 
-function addProjectile(speed, type = 'in', x = B.x) {
+function addProjectile(speed, type = 'in', x = B.x, customDamage = 10, customColor = null) {
     const stats = getActiveStats();
     let finalSpeed = speed;
     if (type === 'in' && stats.slow > 0) finalSpeed = speed * (1 - stats.slow);
-    projs.push({x, y: P.y, vx: -finalSpeed, sz: 10, active: true, type, dmg: 10});
+    let color = customColor;
+    if (!color) {
+        if (type === 'reflect') color = PLAYER_COLOR;
+        else if (type === 'replica') color = PLAYER_GLOW;
+        else color = '#ffb300';
+    }
+    projs.push({x, y: P.y, vx: -finalSpeed, sz: 10, active: true, type, dmg: customDamage, color: color});
 }
 
 function spawn() {
@@ -115,12 +124,12 @@ function selectStage(n) {
     const boss = L_DATA[lvl];
     bhp = boss.hp;
     projs = [];
-    sTime = 90;
+    // Add start delay before boss begins attacking
+    sTime = boss.startDelay || 60;
     bCount = 0;
     sTimers = [];
     isWaitingToStart = false;
     hitTaken = false;
-    // FIX: Reset HP to full max
     hp = getMaxHp();
     updateMaxHp();
     updateUI();
@@ -195,7 +204,6 @@ function confirmEquip() {
     } else if (pendingType === 'helmet') {
         activeHelmet = pendingId;
     }
-    // FIX: When equipping, ensure HP doesn't exceed new max
     const maxHp = getMaxHp();
     if (hp > maxHp) hp = maxHp;
     updateMaxHp();
@@ -228,7 +236,6 @@ function checkLootDrops() {
 }
 
 function renderInventoryUI() {
-    // Shields
     for (let id of ['default', 'brute', 'chrono', 'resonance', 'chaos', 'mirror']) {
         const el = document.getElementById('skin-' + id);
         if (el) {
@@ -239,7 +246,6 @@ function renderInventoryUI() {
             }
         }
     }
-    // Helmets
     for (let id of ['recruit', 'brute', 'twin', 'triad', 'chaos', 'archmage']) {
         const el = document.getElementById('helmet-' + id);
         if (el) {
@@ -250,7 +256,6 @@ function renderInventoryUI() {
             }
         }
     }
-    // Badges
     for (let id of ['flawless', 'combo', 'reflex', 'champion']) {
         const el = document.getElementById('badge-' + id);
         if (el) {
@@ -269,7 +274,6 @@ function unlockBadge(id) {
 }
 
 function reset() {
-    // FIX: Reset to full max HP based on current equipment
     hp = getMaxHp();
     score = 0; 
     combo = 0; 
@@ -304,25 +308,52 @@ window.addEventListener('keydown', (e) => {
                 projs.forEach(p => { if (p.active && p.type === 'in') { let d = p.x - (P.x + S_OFF); if (d > -5 && d < minDist) { minDist = d; target = p; } } });
                 let validWindow = P_WIN + (stats.parryWindow * 40);
                 if (target && minDist <= validWindow) {
-                    target.active = false;
+                    const baseDamage = 10;
+                    let finalDamage = baseDamage;
+                    let extraDamageTriggered = false;
+                    
+                    if (stats.extraDamage > 0 && Math.random() < stats.extraDamage) {
+                        finalDamage = baseDamage + 5;
+                        extraDamageTriggered = true;
+                    }
+                    
+                    // Send the projectile back with PLAYER's color!
+                    target.vx = Math.abs(target.vx) * 1.2;
+                    target.type = 'reflect';
+                    target.dmg = finalDamage;
+                    target.color = PLAYER_COLOR;  // Player's cyan color
+                    
+                    if (extraDamageTriggered) {
+                        document.getElementById('drop-alert').innerHTML = "✨ CRITICAL REFLECT! +5 DAMAGE ✨";
+                        setTimeout(() => { if (document.getElementById('drop-alert').innerHTML === "✨ CRITICAL REFLECT! +5 DAMAGE ✨") document.getElementById('drop-alert').innerHTML = ""; }, 500);
+                    } else {
+                        document.getElementById('drop-alert').innerHTML = "⚡ FIREBALL REFLECTED! ⚡";
+                        setTimeout(() => { if (document.getElementById('drop-alert').innerHTML === "⚡ FIREBALL REFLECTED! ⚡") document.getElementById('drop-alert').innerHTML = ""; }, 300);
+                    }
+                    
                     score++; combo++; shake = 8; P.st = 'success'; P.tm = 0;
                     if (combo > maxCombo) maxCombo = combo;
                     if (combo >= 5) unlockBadge('combo');
                     if (minDist <= 10) unlockBadge('reflex');
                     
-                    // Heal on parry
                     if (stats.healParry > 0 && Math.random() < stats.healParry && hp < getMaxHp()) {
                         hp++;
                         updateMaxHp();
+                        document.getElementById('drop-alert').innerHTML = "💚 HEALED! 💚";
+                        setTimeout(() => { if (document.getElementById('drop-alert').innerHTML === "💚 HEALED! 💚") document.getElementById('drop-alert').innerHTML = ""; }, 500);
                     }
-                    // Replica on parry
-                    if (stats.replica > 0 && Math.random() < stats.replica) {
-                        projs.push({x: P.x + S_OFF + 20, y: P.y, vx: 12, sz: 8, active: true, type: 'replica', dmg: 20});
+                    
+                    if (stats.extraReplica > 0 && Math.random() < stats.extraReplica) {
+                        projs.push({x: P.x + S_OFF + 20, y: P.y, vx: 12, sz: 8, active: true, type: 'replica', dmg: 15, color: PLAYER_GLOW});
+                        document.getElementById('drop-alert').innerHTML = "🔁 EXTRA REPLICA! 🔁";
+                        setTimeout(() => { if (document.getElementById('drop-alert').innerHTML === "🔁 EXTRA REPLICA! 🔁") document.getElementById('drop-alert').innerHTML = ""; }, 500);
                     }
-                    if (stats.replicaHeal > 0 && Math.random() < stats.replicaHeal && hp < getMaxHp()) {
+                    
+                    if (stats.extraHeal > 0 && Math.random() < stats.extraHeal && hp < getMaxHp()) {
                         hp++;
                         updateMaxHp();
                     }
+                    
                     updateUI();
                 } else {
                     P.st = 'miss'; P.tm = 18;
@@ -347,34 +378,26 @@ function update() {
     if (lvl === 5 && sTimers.length > 0) sTimers = sTimers.map(t => { if (t - 1 === 0) addProjectile(L_DATA[lvl].spd); return t - 1; }).filter(t => t > 0);
     
     let act = bCount > 0 || projs.some(p => p.active) || sTimers.length > 0;
-    if (!act) { if (--sTime <= 0) spawn(); } else if (sTime > 0) sTime--;
+    if (!act) { 
+        if (--sTime <= 0) spawn(); 
+    } else if (sTime > 0) sTime--;
     
     for (let i = 0; i < projs.length; i++) {
         const p = projs[i];
         if (!p.active) continue;
         p.x += p.vx;
         
-        // Hit player
         if (p.type === 'in' && p.x <= P.x + 10) {
             p.active = false;
-            const stats = getActiveStats();
-            let reflected = false;
-            if (stats.reflect > 0 && Math.random() < stats.reflect) {
-                projs.push({x: p.x + 20, y: p.y, vx: 12, sz: 8, active: true, type: 'reflect', dmg: 15});
-                reflected = true;
-            }
-            if (!reflected) {
-                hp--;
-                updateMaxHp();
-                combo = 0;
-                hitTaken = true;
-                updateUI();
-                if (hp <= 0) { end(false); return; }
-            }
+            hp--;
+            updateMaxHp();
+            combo = 0;
+            hitTaken = true;
+            updateUI();
+            if (hp <= 0) { end(false); return; }
             continue;
         }
-        // Hit boss
-        if ((p.type === 'replica' || p.type === 'reflect') && p.x >= B.x) {
+        if ((p.type === 'replica' || p.type === 'reflect') && p.x >= B.x - 20) {
             p.active = false;
             bhp -= p.dmg || 10;
             const boss = L_DATA[lvl];
@@ -383,7 +406,7 @@ function update() {
             if (bhp <= 0) { end(true); return; }
             continue;
         }
-        if (p.x < 0 || p.x > canvas.width) p.active = false;
+        if (p.x < -50 || p.x > canvas.width + 50) p.active = false;
     }
     projs = projs.filter(p => p.active);
 }
@@ -431,7 +454,7 @@ function draw() {
     ctx.fillRect(B.x + 28, B.y + 22, 7, 4);
     
     ctx.save();
-    let kc = '#66fcf1', aa = '#45a29e';
+    let kc = PLAYER_COLOR, aa = '#45a29e';
     if (P.st === 'miss') { kc = '#555555'; aa = '#333333'; }
     else if (P.st === 'success') { kc = '#00ffcc'; aa = '#ffffff'; }
     ctx.fillStyle = '#451212';
@@ -458,19 +481,18 @@ function draw() {
     ctx.lineWidth = 5;
     if (P.st === 'parrying' || P.st === 'success') ctx.strokeStyle = '#ffffff';
     else if (P.st === 'miss') ctx.strokeStyle = '#ff3333';
-    else ctx.strokeStyle = '#45a29e';
+    else ctx.strokeStyle = PLAYER_COLOR;
     ctx.shadowColor = ctx.strokeStyle;
     ctx.beginPath();
     ctx.moveTo(P.x + S_OFF, P.y - 25);
     ctx.lineTo(P.x + S_OFF, P.y + 25);
     ctx.stroke();
     
+    // Draw all projectiles with their individual colors
     projs.forEach(p => {
         if (!p.active) return;
         ctx.save();
-        if (p.type === 'replica') ctx.fillStyle = '#00ffaa';
-        else if (p.type === 'reflect') ctx.fillStyle = '#ffaa66';
-        else ctx.fillStyle = '#ffb300';
+        ctx.fillStyle = p.color || (p.type === 'in' ? '#ffb300' : PLAYER_COLOR);
         ctx.shadowColor = ctx.fillStyle;
         ctx.shadowBlur = 15;
         ctx.beginPath();
