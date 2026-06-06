@@ -2,14 +2,14 @@ const canvas = document.getElementById('gameCanvas'), ctx = canvas.getContext('2
 let hp = 3, lvl = 0, bhp = 100, score = 0, combo = 0, maxCombo = 0, over = false, projs = [], bCount = 0, sTime = 60, shake = 0, sTimers = [], isWaitingToStart = true, hitTaken = false;
 let activeShield = 'default';
 let activeHelmet = 'recruit';
-let activeSword = null;
+let activeSword = 'none';
 let parryMessages = [];
 let reviveUsed = false;
 let reviveMessage = '';
 let reviveMessageTimer = 0;
 
 // Sword system variables
-let ownedSwords = JSON.parse(localStorage.getItem('parry_swords')) || [];
+let ownedSwords = JSON.parse(localStorage.getItem('parry_swords')) || ['none'];
 let swordCooldown = 0;
 let swordCooldownMax = 360; // 6 seconds at 60fps
 let swordBuffDuration = 180; // 3 seconds at 60fps
@@ -39,6 +39,7 @@ const L_DATA = {
 
 // Sword data
 const SWORD_DATA = {
+    none: { name: "No Sword", ico: "⚔️", boss: 0, desc: "Unequip your sword. No ability.", cooldown: "" },
     brute: { name: "Brute Cleaver", ico: "🔴", boss: 1, buffParryWindow: 0.25, desc: "For 3 seconds: +25% parry window", cooldown: "6 second cooldown" },
     twin: { name: "Twin Fangs", ico: "🟣", boss: 2, buffSlow: 0.35, desc: "For 3 seconds: Slows projectiles by 35%", cooldown: "6 second cooldown" },
     triad: { name: "Triad Edge", ico: "🔵", boss: 3, buffReflectOnHit: 0.20, desc: "For 3 seconds: 20% reflect on hit chance", cooldown: "6 second cooldown" },
@@ -70,15 +71,15 @@ const HELMET_STATS = {
     relentless: { name: "Relentless Helmet", ico: "🔥", desc: "Revives you to max HP upon death (once per run).", parryWindow: 0, slow: 0, reflectOnHit: 0, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 0 }
 };
 
-// Badge definitions
+// Badge definitions - UPDATED for 5 drops and 15 drops
 const BADGE_DATA = {
     flawless: { name: "🛡️ UNTOUCHABLE", desc: "Beat any boss without taking damage", reward: "No reward (achievement only)" },
     combo: { name: "🔥 COMBO KING", desc: "Get a 5x Parry Combo", reward: "No reward (achievement only)" },
     reflex: { name: "⚡ FAST HANDS", desc: "Parry at lightning speed (within 10px of shield)", reward: "No reward (achievement only)" },
     champion: { name: "👑 CHAMPION", desc: "Defeat all 5 boss styles", reward: "No reward (achievement only)" },
     perfectionist: { name: "🎯 PERFECTIONIST", desc: "Get 5 PERFECT parries in one fight", reward: "PERFECT parries deal 15 damage (instead of 10)" },
-    novice: { name: "📦 NOVICE COLLECTOR", desc: "Collect any 3 boss drops (shields or helmets from ST1-ST5)", reward: "Unlocks Novice Collector Core 📦 (2x drop chance from bosses)" },
-    advanced: { name: "💎 ADVANCED COLLECTOR", desc: "Collect all 10 boss drops (5 shields + 5 helmets from ST1-ST5)", reward: "Unlocks Advanced Collector Core 💎 (3x drop chance from bosses)" },
+    novice: { name: "📦 NOVICE COLLECTOR", desc: "Collect any 5 boss drops (shields, helmets, or swords from ST1-ST5)", reward: "Unlocks Novice Collector Core 📦 (2x drop chance from bosses)" },
+    advanced: { name: "💎 ADVANCED COLLECTOR", desc: "Collect all 15 boss drops (5 shields + 5 helmets + 5 swords from ST1-ST5)", reward: "Unlocks Advanced Collector Core 💎 (3x drop chance from bosses)" },
     relentless: { name: "🔥 RELENTLESS", desc: "The badge for the try-hards.", reward: "Unlocks Relentless Helmet (revives to max HP upon death, once per run)" },
     completionist: { name: "🏆 COMPLETIONIST", desc: "Unlock all other badges", reward: "Unobtainable for now" }
 };
@@ -240,6 +241,18 @@ function clickHelmet(id) {
 }
 
 function clickSword(id) {
+    if (id === 'none') {
+        // No Sword is always equippable
+        if (activeSword === 'none') {
+            activeSword = null;
+        } else {
+            activeSword = 'none';
+        }
+        localStorage.setItem('parry_active_sword', activeSword);
+        renderSwordUI();
+        return;
+    }
+    
     if (ownedSwords.includes(id)) {
         pendingType = 'sword';
         pendingId = id;
@@ -275,7 +288,7 @@ function confirmEquip() {
 }
 
 function useSwordAbility() {
-    if (!activeSword) {
+    if (!activeSword || activeSword === 'none') {
         document.getElementById('drop-alert').innerHTML = "❌ No sword equipped! Press F to use sword ability ❌";
         setTimeout(() => { 
             if (document.getElementById('drop-alert').innerHTML === "❌ No sword equipped! Press F to use sword ability ❌") 
@@ -329,30 +342,22 @@ function checkLootDrops() {
     let dropMultiplier = getDropMultiplier();
     let finalChance = baseChance * dropMultiplier;
     
-    let droppedShield = false, droppedHelmet = false, droppedSword = false;
-    
     if (boss.dropShield && !ownedShields.includes(boss.dropShield)) {
         if (Math.random() < finalChance) {
             ownedShields.push(boss.dropShield);
-            msg += `🛡️ ${SHIELD_STATS[boss.dropShield].name} `;
             drops.push(`🛡️ ${SHIELD_STATS[boss.dropShield].name}`);
-            droppedShield = true;
         }
     }
     if (boss.dropHelmet && !ownedHelmets.includes(boss.dropHelmet)) {
         if (Math.random() < finalChance) {
             ownedHelmets.push(boss.dropHelmet);
-            msg += `🪖 ${HELMET_STATS[boss.dropHelmet].name} `;
             drops.push(`🪖 ${HELMET_STATS[boss.dropHelmet].name}`);
-            droppedHelmet = true;
         }
     }
     if (boss.dropSword && !ownedSwords.includes(boss.dropSword)) {
         if (Math.random() < finalChance) {
             ownedSwords.push(boss.dropSword);
-            msg += `⚔️ ${SWORD_DATA[boss.dropSword].name} `;
             drops.push(`⚔️ ${SWORD_DATA[boss.dropSword].name}`);
-            droppedSword = true;
         }
     }
     
@@ -364,7 +369,7 @@ function checkLootDrops() {
         document.getElementById('drop-alert').innerHTML = `🏆 DROP: ${drops[0]}! 🏆`;
     }
     
-    if (msg) {
+    if (drops.length > 0) {
         localStorage.setItem('parry_shields', JSON.stringify(ownedShields));
         localStorage.setItem('parry_helmets', JSON.stringify(ownedHelmets));
         localStorage.setItem('parry_swords', JSON.stringify(ownedSwords));
@@ -399,11 +404,18 @@ function renderInventoryUI() {
 }
 
 function renderSwordUI() {
-    const allSwords = ['brute', 'twin', 'triad', 'chaos', 'archmage'];
+    const allSwords = ['none', 'brute', 'twin', 'triad', 'chaos', 'archmage'];
     for (let id of allSwords) {
         const el = document.getElementById('sword-' + id);
         if (el) {
-            if (ownedSwords.includes(id)) {
+            if (id === 'none') {
+                // No Sword is always unlocked
+                if (activeSword === 'none' || (!activeSword && id === 'none')) {
+                    el.className = "sword-slot active";
+                } else {
+                    el.className = "sword-slot unlocked";
+                }
+            } else if (ownedSwords.includes(id)) {
                 if (activeSword === id) {
                     el.className = "sword-slot active";
                     if (swordCooldown > 0) {
@@ -423,7 +435,7 @@ function renderSwordUI() {
     const swordIndicator = document.getElementById('active-sword');
     const cooldownIndicator = document.getElementById('sword-cooldown-indicator');
     if (swordIndicator) {
-        if (activeSword) {
+        if (activeSword && activeSword !== 'none') {
             swordIndicator.innerHTML = `⚔️ ${SWORD_DATA[activeSword].ico} ${SWORD_DATA[activeSword].name}`;
             if (swordCooldown > 0) {
                 const secondsLeft = Math.ceil(swordCooldown / 60);
@@ -438,6 +450,32 @@ function renderSwordUI() {
             swordIndicator.innerHTML = `⚔️ No Sword Equipped`;
             cooldownIndicator.innerHTML = ``;
         }
+    }
+}
+
+function checkCollectorBadges() {
+    // Get all non-default, non-recruit, non-collector drops (real boss drops)
+    const bossDrops = [...ownedShields, ...ownedHelmets, ...ownedSwords];
+    const realDrops = bossDrops.filter(item => 
+        !['default', 'recruit', 'novice', 'advanced', 'hardmode', 'relentless', 'none'].includes(item)
+    );
+    
+    // Novice badge: collect any 5 boss drops (shields, helmets, or swords)
+    if (realDrops.length >= 5 && !badges.includes('novice')) {
+        unlockBadge('novice');
+    }
+    
+    // Advanced badge: collect all 15 boss drops (5 shields + 5 helmets + 5 swords)
+    const requiredShields = ['brute', 'chrono', 'resonance', 'chaos', 'mirror'];
+    const requiredHelmets = ['brute', 'twin', 'triad', 'chaos', 'archmage'];
+    const requiredSwords = ['brute', 'twin', 'triad', 'chaos', 'archmage'];
+    
+    const hasAllShields = requiredShields.every(shield => ownedShields.includes(shield));
+    const hasAllHelmets = requiredHelmets.every(helmet => ownedHelmets.includes(helmet));
+    const hasAllSwords = requiredSwords.every(sword => ownedSwords.includes(sword));
+    
+    if (hasAllShields && hasAllHelmets && hasAllSwords && !badges.includes('advanced')) {
+        unlockBadge('advanced');
     }
 }
 
@@ -586,23 +624,8 @@ function checkExistingProgress() {
         renderInventoryUI();
     }
     
-    const bossDrops = [...ownedShields, ...ownedHelmets, ...ownedSwords];
-    const baseDrops = bossDrops.filter(item => 
-        !['default', 'recruit', 'novice', 'advanced', 'hardmode', 'relentless'].includes(item)
-    );
-    
-    if (baseDrops.length >= 3 && !badges.includes('novice')) {
-        unlockBadge('novice');
-    }
-    
-    const requiredShields = ['brute', 'chrono', 'resonance', 'chaos', 'mirror'];
-    const requiredHelmets = ['brute', 'twin', 'triad', 'chaos', 'archmage'];
-    const hasAllShields = requiredShields.every(shield => ownedShields.includes(shield));
-    const hasAllHelmets = requiredHelmets.every(helmet => ownedHelmets.includes(helmet));
-    
-    if (hasAllShields && hasAllHelmets && !badges.includes('advanced')) {
-        unlockBadge('advanced');
-    }
+    // Check collector badges on load
+    checkCollectorBadges();
 }
 
 window.addEventListener('keydown', (e) => {
@@ -726,7 +749,6 @@ function update() {
         if (swordBuffRemaining <= 0) {
             swordBuffActive = false;
             activeSwordBuff = null;
-            // No expiration message - just remove the glow
             renderSwordUI();
         } else {
             renderSwordUI();
@@ -830,23 +852,8 @@ function end(w) {
         if (cleared.length >= maxL) unlockBadge('champion');
         checkLootDrops();
         
-        const bossDrops = [...ownedShields, ...ownedHelmets, ...ownedSwords];
-        const baseDrops = bossDrops.filter(item => 
-            !['default', 'recruit', 'novice', 'advanced', 'hardmode', 'relentless'].includes(item)
-        );
-        
-        if (baseDrops.length >= 3 && !badges.includes('novice')) {
-            unlockBadge('novice');
-        }
-        
-        const requiredShields = ['brute', 'chrono', 'resonance', 'chaos', 'mirror'];
-        const requiredHelmets = ['brute', 'twin', 'triad', 'chaos', 'archmage'];
-        const hasAllShields = requiredShields.every(shield => ownedShields.includes(shield));
-        const hasAllHelmets = requiredHelmets.every(helmet => ownedHelmets.includes(helmet));
-        
-        if (hasAllShields && hasAllHelmets && !badges.includes('advanced')) {
-            unlockBadge('advanced');
-        }
+        // Check collector badges after getting drops
+        checkCollectorBadges();
         
         if (lvl === 5 && activeHelmet === 'hardmode' && !badges.includes('relentless')) {
             unlockBadge('relentless');
@@ -904,8 +911,8 @@ function draw() {
     ctx.arc(P.x - 5, P.y - 22, 6, 0, Math.PI * 2);
     ctx.fill();
     
-    // Draw angled rapier sword on player if equipped
-    if (activeSword) {
+    // Draw angled rapier sword on player if equipped and not "none"
+    if (activeSword && activeSword !== 'none') {
         const swordColor = swordCooldown > 0 ? '#666666' : (swordBuffActive ? '#00ffcc' : '#c0c0c0');
         ctx.save();
         ctx.translate(P.x + 12, P.y - 8);
