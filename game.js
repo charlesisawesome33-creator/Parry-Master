@@ -52,10 +52,10 @@ function confirmEquip() { activeSkin = selectedSkinPending; renderInventoryUI();
 
 function checkLootDrops() {
     let txt = '', r = Math.random() * 100;
-    if (lvl === 1 && r <= 10 && !skins.includes('brute')) { skins.push('brute'); txt = '🏆 DROP: Brute Bulwark Unlocked!'; }
-    if (lvl === 2 && r <= 4 && !skins.includes('chrono')) { skins.push('chrono'); txt = '🏆 DROP: Chrono Deflector Unlocked!'; }
-    if (lvl === 3 && r <= 2 && !skins.includes('resonance')) { skins.push('resonance'); txt = '🏆 DROP: Resonance Ward Unlocked!'; }
-    if (lvl === 4 && r <= 1 && !skins.includes('chaos')) { skins.push('chaos'); txt = '🏆 DROP: Chaos Core Unlocked!'; }
+    if (lvl === 1 && r <= 20 && !skins.includes('brute')) { skins.push('brute'); txt = '🏆 DROP: Brute Bulwark Unlocked!'; }
+    if (lvl === 2 && r <= 15 && !skins.includes('chrono')) { skins.push('chrono'); txt = '🏆 DROP: Chrono Deflector Unlocked!'; }
+    if (lvl === 3 && r <= 10 && !skins.includes('resonance')) { skins.push('resonance'); txt = '🏆 DROP: Resonance Ward Unlocked!'; }
+    if (lvl === 4 && r <= 5 && !skins.includes('chaos')) { skins.push('chaos'); txt = '🏆 DROP: Chaos Core Unlocked!'; }
     if (txt) { localStorage.setItem('parry_skins', JSON.stringify(skins)); document.getElementById('drop-alert').innerText = txt; }
 }
 
