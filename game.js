@@ -567,8 +567,8 @@ function end(w) {
         checkLootDrops();
         
         // Check for Collector badge (all shields AND all helmets)
-        const allShields = ['default', 'brute', 'chrono', 'resonance', 'chaos', 'mirror', 'collector'];
-        const allHelmets = ['recruit', 'brute', 'twin', 'triad', 'chaos', 'archmage', 'completionist'];
+        const allShields = ['default', 'brute', 'chrono', 'resonance', 'chaos', 'mirror'];
+        const allHelmets = ['recruit', 'brute', 'twin', 'triad', 'chaos', 'archmage'];
         const hasAllShields = allShields.every(shield => ownedShields.includes(shield));
         const hasAllHelmets = allHelmets.every(helmet => ownedHelmets.includes(helmet));
         
