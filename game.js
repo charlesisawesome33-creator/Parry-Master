@@ -272,18 +272,6 @@ function renderInventoryUI() {
             }
         }
     }
-    const allBadges = ['flawless', 'combo', 'reflex', 'champion', 'perfectionist', 'novice', 'advanced', 'relentless', 'completionist'];
-    for (let id of allBadges) {
-        const el = document.getElementById('badge-' + id);
-        if (el) {
-            if (badges.includes(id)) {
-                el.className = "badge-slot unlocked";
-            } else {
-                el.className = "badge-slot locked";
-                if (id === 'completionist') el.style.opacity = '0.5';
-            }
-        }
-    }
 }
 
 function checkCompletionistBadge() {

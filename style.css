@@ -250,27 +250,6 @@ p {
     box-shadow: 0 0 10px rgba(102, 252, 241, 0.3);
 }
 
-.badge-slot {
-    font-size: 12px;
-    font-weight: bold;
-    padding: 6px 12px;
-    border-radius: 4px;
-}
-
-.badge-slot.locked {
-    background: #1f2833;
-    color: #444;
-    opacity: 0.4;
-    border: 1px dashed #444;
-}
-
-.badge-slot.unlocked {
-    background: #1f2833;
-    color: #66fcf1;
-    border: 1px solid #66fcf1;
-    box-shadow: 0 0 8px rgba(102, 252, 241, 0.4);
-}
-
 #selector-panel {
     display: flex;
     gap: 15px;
