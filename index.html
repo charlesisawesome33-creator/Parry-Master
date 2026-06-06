@@ -6,6 +6,7 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <!-- GAMEPLAY VIEW AND HUDS -->
     <div id="game-container">
         <div id="ui-layer">
             <div id="boss-info">
@@ -17,6 +18,8 @@
         </div>
         <canvas id="gameCanvas" width="800" height="400"></canvas>
         <div id="instructions">Select an opponent below and press <strong>SPACEBAR</strong> to start!</div>
+        
+        <!-- ROUND STATUS OVERLAY MODAL -->
         <div id="game-over-screen" class="hidden">
             <h1 id="game-over-title">GAME OVER</h1>
             <p id="game-over-sub">Press R to Restart</p>
@@ -35,25 +38,33 @@
         </div>
     </div>
     
+    <!-- SHIELD SKIN RACKS -->
     <div id="armory-case">
         <div class="skin-slot active" id="skin-default" onclick="clickSkin('default')">🔘 Default</div>
         <div class="skin-slot locked" id="skin-brute" onclick="clickSkin('brute')">🔴 Bulwark</div>
         <div class="skin-slot locked" id="skin-chrono" onclick="clickSkin('chrono')">🟣 Chrono</div>
         <div class="skin-slot locked" id="skin-resonance" onclick="clickSkin('resonance')">🔵 Resonance</div>
         <div class="skin-slot locked" id="skin-chaos" onclick="clickSkin('chaos')">🟡 Chaos Core</div>
+        <div class="skin-slot locked" id="skin-mirror" onclick="clickSkin('mirror')">💠 Cosmic Mirror</div>
     </div>
+    
+    <!-- ACHIEVED BADGE STORAGE -->
     <div id="badge-case">
         <div class="badge-slot locked" id="badge-flawless" title="Beat any boss without taking damage">🛡️ UNTOUCHABLE</div>
         <div class="badge-slot locked" id="badge-combo" title="Get a 5x Parry Combo">🔥 COMBO KING</div>
         <div class="badge-slot locked" id="badge-reflex" title="Parry at lightning speed">⚡ FAST HANDS</div>
-        <div class="badge-slot locked" id="badge-champion" title="Defeat all 4 boss styles">👑 CHAMPION</div>
+        <div class="badge-slot locked" id="badge-champion" title="Defeat all boss styles">👑 CHAMPION</div>
     </div>
+    
+    <!-- FUGHT LEVEL SELECTION CONSOLE -->
     <div id="selector-panel">
         <button class="stage-btn" onclick="selectStage(1)">ST1: BRUTE</button>
         <button class="stage-btn" onclick="selectStage(2)">ST2: TWIN</button>
         <button class="stage-btn" onclick="selectStage(3)">ST3: TRIAD</button>
         <button class="stage-btn" onclick="selectStage(4)">ST4: CHAOS</button>
+        <button class="stage-btn" onclick="selectStage(5)" style="border-color: #e74c3c; color: #e74c3c;">STAGE 5: ARCHMAGE</button>
     </div>
+    
     <script src="game.js"></script>
 </body>
 </html>
