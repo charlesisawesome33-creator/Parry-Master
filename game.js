@@ -214,15 +214,16 @@ function confirmEquip() {
 function checkLootDrops() {
     const boss = L_DATA[lvl];
     let msg = '';
+    let dropChance = (lvl === 1 ? 0.2 : lvl === 2 ? 0.15 : lvl === 3 ? 0.10 : lvl === 4 ? 0.05 : 0.02);
+    
     if (boss.dropShield && !ownedShields.includes(boss.dropShield)) {
-        if (Math.random() < 0.2) {
+        if (Math.random() < dropChance) {
             ownedShields.push(boss.dropShield);
             msg += `🛡️ ${SHIELD_STATS[boss.dropShield].name} `;
         }
     }
     if (boss.dropHelmet && !ownedHelmets.includes(boss.dropHelmet)) {
-        let chance = (lvl === 1 ? 0.2 : lvl === 2 ? 0.15 : lvl === 3 ? 0.10 : lvl === 4 ? 0.05 : 0.02);
-        if (Math.random() < chance) {
+        if (Math.random() < dropChance) {
             ownedHelmets.push(boss.dropHelmet);
             msg += `🪖 ${HELMET_STATS[boss.dropHelmet].name} `;
         }
