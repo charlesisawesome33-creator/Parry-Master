@@ -31,7 +31,8 @@ const SHIELD_STATS = {
     resonance: { name: "Resonance Ward", ico: "🔵", desc: "10% chance to reflect fireball back when HIT (instead of taking damage).", parryWindow: 0, slow: 0, reflectOnHit: 0.10, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 0 },
     chaos: { name: "Chaos Core", ico: "🟡", desc: "15% chance to heal 1 heart on parry.", parryWindow: 0, slow: 0, reflectOnHit: 0, healParry: 0.15, extraReplica: 0, extraHeal: 0, maxHpBonus: 0 },
     mirror: { name: "Cosmic Mirror", ico: "💠", desc: "20% chance for extra replica + 10% heal on parry.", parryWindow: 0, slow: 0, reflectOnHit: 0, healParry: 0, extraReplica: 0.20, extraHeal: 0.10, maxHpBonus: 0 },
-    collector: { name: "Collector's Core", ico: "💎", desc: "2x drop chance (adds +100%, stacks up to 3x total). No duplicate drops.", parryWindow: 0, slow: 0, reflectOnHit: 0, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 0 }
+    novice: { name: "Novice Collector Core", ico: "📦", desc: "2x drop chance from bosses. No duplicate drops.", parryWindow: 0, slow: 0, reflectOnHit: 0, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 0 },
+    advanced: { name: "Advanced Collector Core", ico: "💎", desc: "3x drop chance from bosses. No duplicate drops.", parryWindow: 0, slow: 0, reflectOnHit: 0, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 0 }
 };
 
 // Helmet stats
@@ -41,8 +42,7 @@ const HELMET_STATS = {
     twin: { name: "Twin's Linked Visor", ico: "🟣", desc: "Slows projectiles by 35%.", parryWindow: 0, slow: 0.35, reflectOnHit: 0, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 0 },
     triad: { name: "Triad's Prism Helm", ico: "🔵", desc: "20% chance to reflect fireball back when HIT (instead of taking damage).", parryWindow: 0, slow: 0, reflectOnHit: 0.20, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 0 },
     chaos: { name: "Chaos Crown", ico: "🟡", desc: "25% chance to heal 1 heart on parry.", parryWindow: 0, slow: 0, reflectOnHit: 0, healParry: 0.25, extraReplica: 0, extraHeal: 0, maxHpBonus: 0 },
-    archmage: { name: "Archmage's Star-Cap", ico: "💠", desc: "35% chance for extra replica + 20% heal on parry.", parryWindow: 0, slow: 0, reflectOnHit: 0, healParry: 0, extraReplica: 0.35, extraHeal: 0.20, maxHpBonus: 0 },
-    completionist: { name: "Completionist's Helmet", ico: "👑", desc: "2x drop chance (adds +100%, stacks up to 3x total). No duplicate drops.", parryWindow: 0, slow: 0, reflectOnHit: 0, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 0 }
+    archmage: { name: "Archmage's Star-Cap", ico: "💠", desc: "35% chance for extra replica + 20% heal on parry.", parryWindow: 0, slow: 0, reflectOnHit: 0, healParry: 0, extraReplica: 0.35, extraHeal: 0.20, maxHpBonus: 0 }
 };
 
 // Badge definitions for the Badge Book
@@ -51,9 +51,10 @@ const BADGE_DATA = {
     combo: { name: "🔥 COMBO KING", desc: "Get a 5x Parry Combo", reward: "No reward (achievement only)" },
     reflex: { name: "⚡ FAST HANDS", desc: "Parry at lightning speed (within 10px of shield)", reward: "No reward (achievement only)" },
     champion: { name: "👑 CHAMPION", desc: "Defeat all 5 boss styles", reward: "No reward (achievement only)" },
-    perfectionist: { name: "🎯 PERFECTIONIST", desc: "Get 10 PERFECT parries in one fight", reward: "PERFECT parries deal 15 damage (instead of 10)" },
-    collector: { name: "📦 COLLECTOR", desc: "Unlock all shields AND all helmets", reward: "Unlocks 'Collector's Core' shield (2x drop chance, +100%, stacks to 3x)" },
-    completionist: { name: "👑 COMPLETIONIST", desc: "Unlock all 6 other badges", reward: "Unlocks 'Completionist's Helmet' (2x drop chance, +100%, stacks to 3x max)" }
+    perfectionist: { name: "🎯 PERFECTIONIST", desc: "Get 5 PERFECT parries in one fight", reward: "PERFECT parries deal 15 damage (instead of 10)" },
+    novice: { name: "📦 NOVICE COLLECTOR", desc: "Collect any 3 boss drops (shields or helmets from ST1-ST5)", reward: "Unlocks Novice Collector Core 📦 (2x drop chance from bosses)" },
+    advanced: { name: "💎 ADVANCED COLLECTOR", desc: "Collect all 10 boss drops (5 shields + 5 helmets from ST1-ST5)", reward: "Unlocks Advanced Collector Core 💎 (3x drop chance from bosses)" },
+    completionist: { name: "🏆 COMPLETIONIST", desc: "Unlock all other badges", reward: "Unobtainable for now" }
 };
 
 function getMaxHp() {
@@ -76,10 +77,9 @@ function getActiveStats() {
 }
 
 function getDropMultiplier() {
-    let multiplier = 1;
-    if (ownedShields.includes('collector')) multiplier++;
-    if (ownedHelmets.includes('completionist')) multiplier++;
-    return Math.min(multiplier, 3); // Max 3x
+    if (activeShield === 'advanced') return 3;
+    if (activeShield === 'novice') return 2;
+    return 1;
 }
 
 function updateMaxHp() {
@@ -172,7 +172,6 @@ function clickSkin(id) {
         document.getElementById('modal-icon').innerHTML = details.ico;
         document.getElementById('modal-title').innerHTML = details.name;
         document.getElementById('modal-desc').innerHTML = details.desc;
-        document.getElementById('synergy-preview').innerHTML = '';
         document.getElementById('item-modal').classList.remove('hidden');
     }
 }
@@ -185,7 +184,6 @@ function clickHelmet(id) {
         document.getElementById('modal-icon').innerHTML = details.ico;
         document.getElementById('modal-title').innerHTML = details.name;
         document.getElementById('modal-desc').innerHTML = details.desc;
-        document.getElementById('synergy-preview').innerHTML = '';
         document.getElementById('item-modal').classList.remove('hidden');
     }
 }
@@ -240,7 +238,7 @@ function checkLootDrops() {
 
 function renderInventoryUI() {
     // Shields
-    const allShields = ['default', 'brute', 'chrono', 'resonance', 'chaos', 'mirror', 'collector'];
+    const allShields = ['default', 'brute', 'chrono', 'resonance', 'chaos', 'mirror', 'novice', 'advanced'];
     for (let id of allShields) {
         const el = document.getElementById('skin-' + id);
         if (el) {
@@ -252,7 +250,7 @@ function renderInventoryUI() {
         }
     }
     // Helmets
-    const allHelmets = ['recruit', 'brute', 'twin', 'triad', 'chaos', 'archmage', 'completionist'];
+    const allHelmets = ['recruit', 'brute', 'twin', 'triad', 'chaos', 'archmage'];
     for (let id of allHelmets) {
         const el = document.getElementById('helmet-' + id);
         if (el) {
@@ -264,23 +262,28 @@ function renderInventoryUI() {
         }
     }
     // Badges
-    const allBadges = ['flawless', 'combo', 'reflex', 'champion', 'perfectionist', 'collector', 'completionist'];
+    const allBadges = ['flawless', 'combo', 'reflex', 'champion', 'perfectionist', 'novice', 'advanced', 'completionist'];
     for (let id of allBadges) {
         const el = document.getElementById('badge-' + id);
         if (el) {
-            if (badges.includes(id)) el.className = "badge-slot unlocked";
-            else el.className = "badge-slot locked";
+            if (badges.includes(id)) {
+                el.className = "badge-slot unlocked";
+            } else {
+                el.className = "badge-slot locked";
+                if (id === 'completionist') el.style.opacity = '0.5';
+            }
         }
     }
 }
 
 function checkCompletionistBadge() {
-    // Need all 6 other badges (everything except completionist itself)
-    const requiredBadges = ['flawless', 'combo', 'reflex', 'champion', 'perfectionist', 'collector'];
+    // Need all 7 other badges (everything except completionist itself)
+    const requiredBadges = ['flawless', 'combo', 'reflex', 'champion', 'perfectionist', 'novice', 'advanced'];
     const hasAll = requiredBadges.every(badge => badges.includes(badge));
     
     if (hasAll && !badges.includes('completionist')) {
-        unlockBadge('completionist');
+        // Completionist is unobtainable for now - do nothing
+        console.log("Completionist badge would unlock here in future update");
     }
 }
 
@@ -290,31 +293,31 @@ function unlockBadge(id) {
         localStorage.setItem('parry_badges', JSON.stringify(badges));
         renderInventoryUI();
         
-        // Unlock Collector's Core shield when Collector badge is earned
-        if (id === 'collector' && !ownedShields.includes('collector')) {
-            ownedShields.push('collector');
+        // Unlock Novice Collector Core shield when NOVICE COLLECTOR badge is earned
+        if (id === 'novice' && !ownedShields.includes('novice')) {
+            ownedShields.push('novice');
             localStorage.setItem('parry_shields', JSON.stringify(ownedShields));
             renderInventoryUI();
-            document.getElementById('drop-alert').innerHTML = "💎 COLLECTOR'S CORE UNLOCKED! 💎";
+            document.getElementById('drop-alert').innerHTML = "📦 NOVICE COLLECTOR CORE UNLOCKED! 📦";
             setTimeout(() => {
-                if (document.getElementById('drop-alert').innerHTML === "💎 COLLECTOR'S CORE UNLOCKED! 💎") 
+                if (document.getElementById('drop-alert').innerHTML === "📦 NOVICE COLLECTOR CORE UNLOCKED! 📦") 
                     document.getElementById('drop-alert').innerHTML = "";
             }, 2000);
         }
         
-        // Unlock Completionist's Helmet when Completionist badge is earned
-        if (id === 'completionist' && !ownedHelmets.includes('completionist')) {
-            ownedHelmets.push('completionist');
-            localStorage.setItem('parry_helmets', JSON.stringify(ownedHelmets));
+        // Unlock Advanced Collector Core shield when ADVANCED COLLECTOR badge is earned
+        if (id === 'advanced' && !ownedShields.includes('advanced')) {
+            ownedShields.push('advanced');
+            localStorage.setItem('parry_shields', JSON.stringify(ownedShields));
             renderInventoryUI();
-            document.getElementById('drop-alert').innerHTML = "👑 COMPLETIONIST'S HELMET UNLOCKED! 👑";
+            document.getElementById('drop-alert').innerHTML = "💎 ADVANCED COLLECTOR CORE UNLOCKED! 💎";
             setTimeout(() => {
-                if (document.getElementById('drop-alert').innerHTML === "👑 COMPLETIONIST'S HELMET UNLOCKED! 👑") 
+                if (document.getElementById('drop-alert').innerHTML === "💎 ADVANCED COLLECTOR CORE UNLOCKED! 💎") 
                     document.getElementById('drop-alert').innerHTML = "";
             }, 2000);
         }
         
-        // After unlocking any badge, check if Completionist is now achievable
+        // Check for Completionist after any badge unlock
         checkCompletionistBadge();
     }
 }
@@ -352,8 +355,12 @@ function openBadgeViewer() {
     
     for (const [id, data] of Object.entries(BADGE_DATA)) {
         const isUnlocked = badges.includes(id);
+        const isUnobtainable = (id === 'completionist');
         const badgeDiv = document.createElement('div');
         badgeDiv.className = `badge-card ${isUnlocked ? 'unlocked-badge' : 'locked-badge'}`;
+        if (isUnobtainable && !isUnlocked) {
+            badgeDiv.style.opacity = '0.5';
+        }
         badgeDiv.innerHTML = `
             <div class="badge-icon">${data.name.split(' ')[0]}</div>
             <div class="badge-info">
@@ -361,7 +368,7 @@ function openBadgeViewer() {
                 <div class="badge-desc">📜 ${data.desc}</div>
                 <div class="badge-reward">🎁 ${data.reward}</div>
             </div>
-            <div class="badge-status">${isUnlocked ? '✅' : '🔒'}</div>
+            <div class="badge-status">${isUnlocked ? '✅' : (isUnobtainable ? '🔒' : '🔒')}</div>
         `;
         badgeList.appendChild(badgeDiv);
     }
@@ -414,11 +421,11 @@ window.addEventListener('keydown', (e) => {
                         color: qualityColor
                     });
                     
-                    // Track PERFECT parries for Perfectionist badge
+                    // Track PERFECT parries for Perfectionist badge (now 5 instead of 10)
                     if (isPerfect) {
                         if (!window.perfectCount) window.perfectCount = 0;
                         window.perfectCount++;
-                        if (window.perfectCount >= 10 && !badges.includes('perfectionist')) {
+                        if (window.perfectCount >= 5 && !badges.includes('perfectionist')) {
                             unlockBadge('perfectionist');
                         }
                     }
@@ -466,7 +473,7 @@ window.addEventListener('keydown', (e) => {
                 } else {
                     P.st = 'miss'; P.tm = 18;
                     combo = 0;
-                    window.perfectCount = 0; // Reset PERFECT streak on miss
+                    window.perfectCount = 0;
                     updateUI();
                 }
             }
@@ -566,14 +573,24 @@ function end(w) {
         if (cleared.length >= maxL) unlockBadge('champion');
         checkLootDrops();
         
-        // Check for Collector badge (all shields AND all helmets)
-        const allShields = ['default', 'brute', 'chrono', 'resonance', 'chaos', 'mirror'];
-        const allHelmets = ['recruit', 'brute', 'twin', 'triad', 'chaos', 'archmage'];
-        const hasAllShields = allShields.every(shield => ownedShields.includes(shield));
-        const hasAllHelmets = allHelmets.every(helmet => ownedHelmets.includes(helmet));
+        // Check for NOVICE COLLECTOR badge (any 3 boss drops)
+        const bossDrops = [...ownedShields, ...ownedHelmets];
+        const baseDrops = bossDrops.filter(item => 
+            item !== 'default' && item !== 'recruit' && item !== 'novice' && item !== 'advanced'
+        );
         
-        if (hasAllShields && hasAllHelmets && !badges.includes('collector')) {
-            unlockBadge('collector');
+        if (baseDrops.length >= 3 && !badges.includes('novice')) {
+            unlockBadge('novice');
+        }
+        
+        // Check for ADVANCED COLLECTOR badge (all 10 boss drops)
+        const requiredShields = ['brute', 'chrono', 'resonance', 'chaos', 'mirror'];
+        const requiredHelmets = ['brute', 'twin', 'triad', 'chaos', 'archmage'];
+        const hasAllShields = requiredShields.every(shield => ownedShields.includes(shield));
+        const hasAllHelmets = requiredHelmets.every(helmet => ownedHelmets.includes(helmet));
+        
+        if (hasAllShields && hasAllHelmets && !badges.includes('advanced')) {
+            unlockBadge('advanced');
         }
     }
 }
