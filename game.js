@@ -2,6 +2,7 @@ const canvas = document.getElementById('gameCanvas'), ctx = canvas.getContext('2
 let hp = 3, lvl = 0, bhp = 100, score = 0, combo = 0, maxCombo = 0, over = false, projs = [], bCount = 0, sTime = 60, shake = 0, sTimers = [], isWaitingToStart = true, hitTaken = false;
 let activeShield = 'default';
 let activeHelmet = 'recruit';
+let parryMessages = [];
 const S_OFF = 30, maxL = 5, P = {x: 150, y: 250, st: 'idle', tm: 0}, B = {x: 650, y: 230, w: 50, h: 80}, P_WIN = 25;
 
 // Inventory data
@@ -111,6 +112,7 @@ function selectStage(n) {
     const boss = L_DATA[lvl];
     bhp = boss.hp;
     projs = [];
+    parryMessages = [];
     sTime = boss.startDelay || 60;
     bCount = 0;
     sTimers = [];
@@ -262,6 +264,7 @@ function reset() {
     isWaitingToStart = true; 
     lvl = 0; 
     projs = []; 
+    parryMessages = [];
     sTimers = [];
     document.getElementById('game-over-screen').classList.add('hidden');
     document.getElementById('item-modal').classList.add('hidden');
@@ -285,6 +288,34 @@ window.addEventListener('keydown', (e) => {
                 projs.forEach(p => { if (p.active && p.type === 'in') { let d = p.x - (P.x + S_OFF); if (d > -5 && d < minDist) { minDist = d; target = p; } } });
                 let validWindow = P_WIN + (stats.parryWindow * 40);
                 if (target && minDist <= validWindow) {
+                    // Determine parry quality based on distance to shield
+                    // PERFECT is in the middle (5-9px)
+                    let quality = '';
+                    let qualityColor = '';
+                    
+                    if (minDist <= 4) {
+                        quality = '⭐ GREAT!';
+                        qualityColor = '#00ff66';
+                    } else if (minDist <= 9) {
+                        quality = '💯 PERFECT!';
+                        qualityColor = '#ffd700';
+                    } else if (minDist <= 14) {
+                        quality = '⭐ GREAT!';
+                        qualityColor = '#00ff66';
+                    } else {
+                        quality = '✓ GOOD!';
+                        qualityColor = '#66ccff';
+                    }
+                    
+                    // Add floating message
+                    parryMessages.push({
+                        text: quality,
+                        x: P.x + S_OFF,
+                        y: P.y - 35,
+                        life: 30,
+                        color: qualityColor
+                    });
+                    
                     // Successful parry - always send fireball back (10 damage)
                     target.vx = Math.abs(target.vx) * 1.2;
                     target.type = 'reflect';
@@ -336,6 +367,13 @@ function update() {
     if (shake > 0) shake--;
     if (P.tm > 0) { P.tm--; if (P.tm === 0) P.st = 'idle'; }
     if (P.tm === 0 && P.st === 'success') P.st = 'idle';
+    
+    // Update parry messages (fade out)
+    for (let i = 0; i < parryMessages.length; i++) {
+        parryMessages[i].life--;
+        parryMessages[i].y -= 1.2;
+    }
+    parryMessages = parryMessages.filter(m => m.life > 0);
     
     if (lvl === 2 && bCount === 1 && sTime === 1) { addProjectile(L_DATA[lvl].spd); bCount = 0; }
     if (lvl === 3 && bCount > 0 && sTime === 1) { addProjectile(L_DATA[lvl].spd); bCount--; if(bCount > 0) sTime = 25; }
@@ -489,6 +527,19 @@ function draw() {
         ctx.arc(p.x, p.y, p.sz, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
+    });
+    
+    // Draw parry quality messages
+    parryMessages.forEach(msg => {
+        const alpha = Math.min(1, msg.life / 30);
+        ctx.font = `bold ${18 + (30 - msg.life) / 3}px monospace`;
+        ctx.textAlign = 'center';
+        ctx.shadowBlur = 8;
+        ctx.shadowColor = msg.color;
+        ctx.fillStyle = msg.color;
+        ctx.globalAlpha = alpha;
+        ctx.fillText(msg.text, msg.x, msg.y);
+        ctx.globalAlpha = 1;
     });
     
     if (isWaitingToStart) {
