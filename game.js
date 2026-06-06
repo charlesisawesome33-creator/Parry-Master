@@ -3,6 +3,9 @@ let hp = 3, lvl = 0, bhp = 100, score = 0, combo = 0, maxCombo = 0, over = false
 let activeShield = 'default';
 let activeHelmet = 'recruit';
 let parryMessages = [];
+let reviveUsed = false;
+let reviveMessage = '';
+let reviveMessageTimer = 0;
 const S_OFF = 30, maxL = 5, P = {x: 150, y: 250, st: 'idle', tm: 0}, B = {x: 650, y: 230, w: 50, h: 80}, P_WIN = 25;
 
 // Inventory data
@@ -42,7 +45,9 @@ const HELMET_STATS = {
     twin: { name: "Twin's Linked Visor", ico: "🟣", desc: "Slows projectiles by 35%.", parryWindow: 0, slow: 0.35, reflectOnHit: 0, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 0 },
     triad: { name: "Triad's Prism Helm", ico: "🔵", desc: "20% chance to reflect fireball back when HIT (instead of taking damage).", parryWindow: 0, slow: 0, reflectOnHit: 0.20, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 0 },
     chaos: { name: "Chaos Crown", ico: "🟡", desc: "25% chance to heal 1 heart on parry.", parryWindow: 0, slow: 0, reflectOnHit: 0, healParry: 0.25, extraReplica: 0, extraHeal: 0, maxHpBonus: 0 },
-    archmage: { name: "Archmage's Star-Cap", ico: "💠", desc: "35% chance for extra replica + 20% heal on parry.", parryWindow: 0, slow: 0, reflectOnHit: 0, healParry: 0, extraReplica: 0.35, extraHeal: 0.20, maxHpBonus: 0 }
+    archmage: { name: "Archmage's Star-Cap", ico: "💠", desc: "35% chance for extra replica + 20% heal on parry.", parryWindow: 0, slow: 0, reflectOnHit: 0, healParry: 0, extraReplica: 0.35, extraHeal: 0.20, maxHpBonus: 0 },
+    hardmode: { name: "Hard Mode Helm", ico: "💀", desc: "-2 max HP. For those who seek a challenge.", parryWindow: 0, slow: 0, reflectOnHit: 0, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: -2 },
+    relentless: { name: "Relentless Helmet", ico: "🔥", desc: "Revives you to max HP upon death (once per run).", parryWindow: 0, slow: 0, reflectOnHit: 0, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 0 }
 };
 
 // Badge definitions for the Badge Book
@@ -54,13 +59,15 @@ const BADGE_DATA = {
     perfectionist: { name: "🎯 PERFECTIONIST", desc: "Get 5 PERFECT parries in one fight", reward: "PERFECT parries deal 15 damage (instead of 10)" },
     novice: { name: "📦 NOVICE COLLECTOR", desc: "Collect any 3 boss drops (shields or helmets from ST1-ST5)", reward: "Unlocks Novice Collector Core 📦 (2x drop chance from bosses)" },
     advanced: { name: "💎 ADVANCED COLLECTOR", desc: "Collect all 10 boss drops (5 shields + 5 helmets from ST1-ST5)", reward: "Unlocks Advanced Collector Core 💎 (3x drop chance from bosses)" },
+    relentless: { name: "🔥 RELENTLESS", desc: "The badge for the try-hards.", reward: "Unlocks Relentless Helmet (revives to max HP upon death, once per run)" },
     completionist: { name: "🏆 COMPLETIONIST", desc: "Unlock all other badges", reward: "Unobtainable for now" }
 };
 
 function getMaxHp() {
     const shield = SHIELD_STATS[activeShield] || SHIELD_STATS.default;
     const helmet = HELMET_STATS[activeHelmet] || HELMET_STATS.recruit;
-    return 3 + shield.maxHpBonus + helmet.maxHpBonus;
+    let bonus = shield.maxHpBonus + helmet.maxHpBonus;
+    return Math.max(1, 3 + bonus);
 }
 
 function getActiveStats() {
@@ -88,6 +95,11 @@ function updateMaxHp() {
     let hearts = '';
     for (let i = 0; i < maxHp; i++) hearts += (i < hp) ? '❤️ ' : '🖤 ';
     document.getElementById('player-hp').innerHTML = `HP: ${hearts}`;
+    
+    // Also update revive message display if active
+    if (reviveMessageTimer > 0) {
+        document.getElementById('player-hp').innerHTML += `<span style="color: #ff6600; margin-left: 10px;"> 🔥 ${reviveMessage} 🔥</span>`;
+    }
 }
 
 function addProjectile(speed, type = 'in', x = B.x, customDamage = 10, customColor = null) {
@@ -128,6 +140,9 @@ function selectStage(n) {
     P.st = 'idle'; 
     P.tm = 0; 
     shake = 0;
+    reviveUsed = false;
+    reviveMessage = '';
+    reviveMessageTimer = 0;
     lvl = n;
     const boss = L_DATA[lvl];
     bhp = boss.hp;
@@ -214,14 +229,12 @@ function checkLootDrops() {
     let dropMultiplier = getDropMultiplier();
     let finalChance = baseChance * dropMultiplier;
     
-    // Shield drop
     if (boss.dropShield && !ownedShields.includes(boss.dropShield)) {
         if (Math.random() < finalChance) {
             ownedShields.push(boss.dropShield);
             msg += `🛡️ ${SHIELD_STATS[boss.dropShield].name} `;
         }
     }
-    // Helmet drop
     if (boss.dropHelmet && !ownedHelmets.includes(boss.dropHelmet)) {
         if (Math.random() < finalChance) {
             ownedHelmets.push(boss.dropHelmet);
@@ -237,7 +250,6 @@ function checkLootDrops() {
 }
 
 function renderInventoryUI() {
-    // Shields
     const allShields = ['default', 'brute', 'chrono', 'resonance', 'chaos', 'mirror', 'novice', 'advanced'];
     for (let id of allShields) {
         const el = document.getElementById('skin-' + id);
@@ -249,8 +261,7 @@ function renderInventoryUI() {
             }
         }
     }
-    // Helmets
-    const allHelmets = ['recruit', 'brute', 'twin', 'triad', 'chaos', 'archmage'];
+    const allHelmets = ['recruit', 'brute', 'twin', 'triad', 'chaos', 'archmage', 'hardmode', 'relentless'];
     for (let id of allHelmets) {
         const el = document.getElementById('helmet-' + id);
         if (el) {
@@ -261,8 +272,7 @@ function renderInventoryUI() {
             }
         }
     }
-    // Badges
-    const allBadges = ['flawless', 'combo', 'reflex', 'champion', 'perfectionist', 'novice', 'advanced', 'completionist'];
+    const allBadges = ['flawless', 'combo', 'reflex', 'champion', 'perfectionist', 'novice', 'advanced', 'relentless', 'completionist'];
     for (let id of allBadges) {
         const el = document.getElementById('badge-' + id);
         if (el) {
@@ -277,14 +287,35 @@ function renderInventoryUI() {
 }
 
 function checkCompletionistBadge() {
-    // Need all 7 other badges (everything except completionist itself)
-    const requiredBadges = ['flawless', 'combo', 'reflex', 'champion', 'perfectionist', 'novice', 'advanced'];
+    const requiredBadges = ['flawless', 'combo', 'reflex', 'champion', 'perfectionist', 'novice', 'advanced', 'relentless'];
     const hasAll = requiredBadges.every(badge => badges.includes(badge));
     
     if (hasAll && !badges.includes('completionist')) {
-        // Completionist is unobtainable for now - do nothing
         console.log("Completionist badge would unlock here in future update");
     }
+}
+
+function attemptRevive() {
+    if (activeHelmet === 'relentless' && !reviveUsed && !over) {
+        reviveUsed = true;
+        const maxHp = getMaxHp();
+        hp = maxHp;
+        
+        // Set revive message to appear under HP
+        reviveMessage = "RELENTLESS REVIVE!";
+        reviveMessageTimer = 90; // ~1.5 seconds at 60fps
+        
+        updateMaxHp();
+        
+        // Also show in drop-alert for visibility
+        document.getElementById('drop-alert').innerHTML = "🔥 REVIVED BY RELENTLESS HELMET! 🔥";
+        setTimeout(() => {
+            if (document.getElementById('drop-alert').innerHTML === "🔥 REVIVED BY RELENTLESS HELMET! 🔥") 
+                document.getElementById('drop-alert').innerHTML = "";
+        }, 2000);
+        return true;
+    }
+    return false;
 }
 
 function unlockBadge(id) {
@@ -293,7 +324,6 @@ function unlockBadge(id) {
         localStorage.setItem('parry_badges', JSON.stringify(badges));
         renderInventoryUI();
         
-        // Unlock Novice Collector Core shield when NOVICE COLLECTOR badge is earned
         if (id === 'novice' && !ownedShields.includes('novice')) {
             ownedShields.push('novice');
             localStorage.setItem('parry_shields', JSON.stringify(ownedShields));
@@ -305,7 +335,6 @@ function unlockBadge(id) {
             }, 2000);
         }
         
-        // Unlock Advanced Collector Core shield when ADVANCED COLLECTOR badge is earned
         if (id === 'advanced' && !ownedShields.includes('advanced')) {
             ownedShields.push('advanced');
             localStorage.setItem('parry_shields', JSON.stringify(ownedShields));
@@ -317,7 +346,17 @@ function unlockBadge(id) {
             }, 2000);
         }
         
-        // Check for Completionist after any badge unlock
+        if (id === 'relentless' && !ownedHelmets.includes('relentless')) {
+            ownedHelmets.push('relentless');
+            localStorage.setItem('parry_helmets', JSON.stringify(ownedHelmets));
+            renderInventoryUI();
+            document.getElementById('drop-alert').innerHTML = "🔥 RELENTLESS HELMET UNLOCKED! 🔥";
+            setTimeout(() => {
+                if (document.getElementById('drop-alert').innerHTML === "🔥 RELENTLESS HELMET UNLOCKED! 🔥") 
+                    document.getElementById('drop-alert').innerHTML = "";
+            }, 2000);
+        }
+        
         checkCompletionistBadge();
     }
 }
@@ -331,6 +370,9 @@ function reset() {
     P.st = 'idle'; 
     P.tm = 0; 
     shake = 0; 
+    reviveUsed = false;
+    reviveMessage = '';
+    reviveMessageTimer = 0;
     isWaitingToStart = true; 
     lvl = 0; 
     projs = []; 
@@ -346,7 +388,6 @@ function reset() {
     updateBtnUI();
 }
 
-// Badge Book Functions
 function openBadgeViewer() {
     const modal = document.getElementById('badge-modal');
     const badgeList = document.getElementById('badge-list');
@@ -368,7 +409,7 @@ function openBadgeViewer() {
                 <div class="badge-desc">📜 ${data.desc}</div>
                 <div class="badge-reward">🎁 ${data.reward}</div>
             </div>
-            <div class="badge-status">${isUnlocked ? '✅' : (isUnobtainable ? '🔒' : '🔒')}</div>
+            <div class="badge-status">${isUnlocked ? '✅' : '🔒'}</div>
         `;
         badgeList.appendChild(badgeDiv);
     }
@@ -378,6 +419,32 @@ function openBadgeViewer() {
 
 function closeBadgeModal() {
     document.getElementById('badge-modal').classList.add('hidden');
+}
+
+function checkExistingProgress() {
+    if (!ownedHelmets.includes('hardmode')) {
+        ownedHelmets.push('hardmode');
+        localStorage.setItem('parry_helmets', JSON.stringify(ownedHelmets));
+        renderInventoryUI();
+    }
+    
+    const bossDrops = [...ownedShields, ...ownedHelmets];
+    const baseDrops = bossDrops.filter(item => 
+        !['default', 'recruit', 'novice', 'advanced', 'hardmode', 'relentless'].includes(item)
+    );
+    
+    if (baseDrops.length >= 3 && !badges.includes('novice')) {
+        unlockBadge('novice');
+    }
+    
+    const requiredShields = ['brute', 'chrono', 'resonance', 'chaos', 'mirror'];
+    const requiredHelmets = ['brute', 'twin', 'triad', 'chaos', 'archmage'];
+    const hasAllShields = requiredShields.every(shield => ownedShields.includes(shield));
+    const hasAllHelmets = requiredHelmets.every(helmet => ownedHelmets.includes(helmet));
+    
+    if (hasAllShields && hasAllHelmets && !badges.includes('advanced')) {
+        unlockBadge('advanced');
+    }
 }
 
 window.addEventListener('keydown', (e) => {
@@ -392,7 +459,6 @@ window.addEventListener('keydown', (e) => {
                 projs.forEach(p => { if (p.active && p.type === 'in') { let d = p.x - (P.x + S_OFF); if (d > -5 && d < minDist) { minDist = d; target = p; } } });
                 let validWindow = P_WIN + (stats.parryWindow * 40);
                 if (target && minDist <= validWindow) {
-                    // Determine parry quality based on distance to shield
                     let quality = '';
                     let qualityColor = '';
                     let isPerfect = false;
@@ -412,7 +478,6 @@ window.addEventListener('keydown', (e) => {
                         qualityColor = '#66ccff';
                     }
                     
-                    // Add floating message
                     parryMessages.push({
                         text: quality,
                         x: P.x + S_OFF,
@@ -421,7 +486,6 @@ window.addEventListener('keydown', (e) => {
                         color: qualityColor
                     });
                     
-                    // Track PERFECT parries for Perfectionist badge (now 5 instead of 10)
                     if (isPerfect) {
                         if (!window.perfectCount) window.perfectCount = 0;
                         window.perfectCount++;
@@ -430,7 +494,6 @@ window.addEventListener('keydown', (e) => {
                         }
                     }
                     
-                    // Successful parry - damage depends on Perfectionist badge
                     let damage = 10;
                     if (isPerfect && badges.includes('perfectionist')) {
                         damage = 15;
@@ -449,7 +512,6 @@ window.addEventListener('keydown', (e) => {
                     if (combo >= 5) unlockBadge('combo');
                     if (minDist <= 10) unlockBadge('reflex');
                     
-                    // Heal on parry (Chaos set)
                     if (stats.healParry > 0 && Math.random() < stats.healParry && hp < getMaxHp()) {
                         hp++;
                         updateMaxHp();
@@ -457,7 +519,6 @@ window.addEventListener('keydown', (e) => {
                         setTimeout(() => { if (document.getElementById('drop-alert').innerHTML === "💚 HEALED! 💚") document.getElementById('drop-alert').innerHTML = ""; }, 500);
                     }
                     
-                    // Extra replica on parry (Archmage set)
                     if (stats.extraReplica > 0 && Math.random() < stats.extraReplica) {
                         projs.push({x: P.x + S_OFF + 20, y: P.y, vx: 12, sz: 8, active: true, type: 'replica', dmg: 15, color: PLAYER_GLOW});
                         document.getElementById('drop-alert').innerHTML = "🔁 EXTRA REPLICA! 🔁";
@@ -488,7 +549,15 @@ function update() {
     if (P.tm > 0) { P.tm--; if (P.tm === 0) P.st = 'idle'; }
     if (P.tm === 0 && P.st === 'success') P.st = 'idle';
     
-    // Update parry messages (fade out)
+    // Update revive message timer
+    if (reviveMessageTimer > 0) {
+        reviveMessageTimer--;
+        if (reviveMessageTimer === 0) {
+            reviveMessage = '';
+            updateMaxHp(); // Refresh HP display to remove message
+        }
+    }
+    
     for (let i = 0; i < parryMessages.length; i++) {
         parryMessages[i].life--;
         parryMessages[i].y -= 1.2;
@@ -510,12 +579,10 @@ function update() {
         if (!p.active) continue;
         p.x += p.vx;
         
-        // Hit player - check for reflect on hit!
         if (p.type === 'in' && p.x <= P.x + 10) {
             const stats = getActiveStats();
             let reflected = false;
             
-            // Check if we reflect on hit (Resonance Ward or Triad Helm)
             if (stats.reflectOnHit > 0 && Math.random() < stats.reflectOnHit) {
                 p.active = false;
                 projs.push({
@@ -541,11 +608,17 @@ function update() {
                 window.perfectCount = 0;
                 hitTaken = true;
                 updateUI();
-                if (hp <= 0) { end(false); return; }
+                if (hp <= 0) { 
+                    if (attemptRevive()) {
+                        updateUI();
+                    } else {
+                        end(false); 
+                        return; 
+                    }
+                }
             }
             continue;
         }
-        // Hit boss
         if ((p.type === 'replica' || p.type === 'reflect') && p.x >= B.x - 20) {
             p.active = false;
             bhp -= p.dmg || 10;
@@ -573,17 +646,15 @@ function end(w) {
         if (cleared.length >= maxL) unlockBadge('champion');
         checkLootDrops();
         
-        // Check for NOVICE COLLECTOR badge (any 3 boss drops)
         const bossDrops = [...ownedShields, ...ownedHelmets];
         const baseDrops = bossDrops.filter(item => 
-            item !== 'default' && item !== 'recruit' && item !== 'novice' && item !== 'advanced'
+            !['default', 'recruit', 'novice', 'advanced', 'hardmode', 'relentless'].includes(item)
         );
         
         if (baseDrops.length >= 3 && !badges.includes('novice')) {
             unlockBadge('novice');
         }
         
-        // Check for ADVANCED COLLECTOR badge (all 10 boss drops)
         const requiredShields = ['brute', 'chrono', 'resonance', 'chaos', 'mirror'];
         const requiredHelmets = ['brute', 'twin', 'triad', 'chaos', 'archmage'];
         const hasAllShields = requiredShields.every(shield => ownedShields.includes(shield));
@@ -591,6 +662,10 @@ function end(w) {
         
         if (hasAllShields && hasAllHelmets && !badges.includes('advanced')) {
             unlockBadge('advanced');
+        }
+        
+        if (lvl === 5 && activeHelmet === 'hardmode' && !badges.includes('relentless')) {
+            unlockBadge('relentless');
         }
     }
 }
@@ -669,7 +744,6 @@ function draw() {
         ctx.restore();
     });
     
-    // Draw parry quality messages
     parryMessages.forEach(msg => {
         const alpha = Math.min(1, msg.life / 30);
         ctx.font = `bold ${18 + (30 - msg.life) / 3}px monospace`;
@@ -691,7 +765,6 @@ function draw() {
     ctx.restore();
 }
 
-// Badge Book event listeners
 document.addEventListener('DOMContentLoaded', () => {
     const viewBtn = document.getElementById('view-badges-btn');
     if (viewBtn) {
@@ -721,4 +794,5 @@ reset();
 renderInventoryUI();
 updateMaxHp();
 window.perfectCount = 0;
+checkExistingProgress();
 gameLoop();

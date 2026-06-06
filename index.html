@@ -12,7 +12,9 @@
         <div id="ui-layer">
             <div id="boss-info">
                 <span id="level-display">SELECT STAGE TO START</span>
-                <div id="boss-hp-bar"><div id="boss-hp"></div></div>
+                <div id="boss-hp-bar">
+                    <div id="boss-hp"></div>
+                </div>
             </div>
             <div id="player-hp">HP: ❤️❤️❤️</div>
             <div id="score">Combo: 0 | Parries: 0</div>
@@ -59,6 +61,8 @@
         <div class="helmet-slot locked" id="helmet-triad" onclick="clickHelmet('triad')">🔵 Prism Helm</div>
         <div class="helmet-slot locked" id="helmet-chaos" onclick="clickHelmet('chaos')">🟡 Chaos Crown</div>
         <div class="helmet-slot locked" id="helmet-archmage" onclick="clickHelmet('archmage')">💠 Star-Cap</div>
+        <div class="helmet-slot unlocked" id="helmet-hardmode" onclick="clickHelmet('hardmode')">💀 Hard Mode</div>
+        <div class="helmet-slot locked" id="helmet-relentless" onclick="clickHelmet('relentless')">🔥 Relentless</div>
     </div>
     
     <!-- ACHIEVED BADGE STORAGE -->
@@ -70,6 +74,7 @@
         <div class="badge-slot locked" id="badge-perfectionist" title="Get 5 PERFECT parries in one fight">🎯 PERFECTIONIST</div>
         <div class="badge-slot locked" id="badge-novice" title="Collect any 3 boss drops">📦 NOVICE COLLECTOR</div>
         <div class="badge-slot locked" id="badge-advanced" title="Collect all 10 boss drops">💎 ADVANCED COLLECTOR</div>
+        <div class="badge-slot locked" id="badge-relentless" title="The badge for the try-hards">🔥 RELENTLESS</div>
         <div class="badge-slot locked" id="badge-completionist" title="Unobtainable for now">🏆 COMPLETIONIST</div>
     </div>
     
@@ -79,7 +84,7 @@
         <button class="stage-btn" onclick="selectStage(2)">ST2: TWIN</button>
         <button class="stage-btn" onclick="selectStage(3)">ST3: TRIAD</button>
         <button class="stage-btn" onclick="selectStage(4)">ST4: CHAOS</button>
-        <button class="stage-btn" onclick="selectStage(5)" style="border-color: #e74c3c; color: #e74c3c;">STAGE 5: ARCHMAGE</button>
+        <button class="stage-btn" onclick="selectStage(5)">ST5: ARCHMAGE</button>
         <button id="view-badges-btn" style="background: #1f2833; border: 2px solid #f1c40f; color: #f1c40f; padding: 10px 20px; font-size: 14px; font-weight: bold; cursor: pointer; border-radius: 4px; margin-left: 10px;">🏆 BADGE BOOK</button>
     </div>
     
