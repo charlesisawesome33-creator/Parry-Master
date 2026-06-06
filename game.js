@@ -1,34 +1,97 @@
 const canvas = document.getElementById('gameCanvas'), ctx = canvas.getContext('2d');
-let hp = 3, lvl = 0, bhp = 100, score = 0, combo = 0, maxCombo = 0, over = false, projs = [], bCount = 0, sTime = 60, shake = 0, sTimers = [], isWaitingToStart = true, hitTaken = false, activeSkin = 'default', resUsed = false;
-let selectedSkinPending = 'default';
+let hp = 3, lvl = 0, bhp = 100, score = 0, combo = 0, maxCombo = 0, over = false, projs = [], bCount = 0, sTime = 60, shake = 0, sTimers = [], isWaitingToStart = true, hitTaken = false;
+let activeShield = 'default';
+let activeHelmet = 'recruit';
 const S_OFF = 30, maxL = 5, P = {x: 150, y: 250, st: 'idle', tm: 0}, B = {x: 650, y: 230, w: 50, h: 80}, P_WIN = 25;
 
+// Inventory data
+let cleared = JSON.parse(localStorage.getItem('parry_cleared')) || [];
+let badges = JSON.parse(localStorage.getItem('parry_badges')) || [];
+let ownedShields = JSON.parse(localStorage.getItem('parry_shields')) || ['default'];
+let ownedHelmets = JSON.parse(localStorage.getItem('parry_helmets')) || ['recruit'];
+
 const L_DATA = {
-    1: {hp: 100, spd: 5, col: '#ff4d4d', t: "ST1: BRUTE (Standard)"},
-    2: {hp: 120, spd: 6, col: '#bf55ec', t: "ST2: TWIN (Double Shot)"},
-    3: {hp: 130, spd: 6.5, col: '#3498db', t: "ST3: TRIAD (Triple Shot)"},
-    4: {hp: 150, spd: 7, col: '#f1c40f', t: "ST4: CHAOS (Random Triple)"},
-    5: {hp: 200, spd: 8, col: '#e74c3c', t: "FINAL STAGE: ARCHMAGE (5-Burst)"}
+    1: {hp: 100, spd: 5, col: '#ff4d4d', t: "ST1: BRUTE", dropShield: 'brute', dropHelmet: 'brute'},
+    2: {hp: 120, spd: 6, col: '#bf55ec', t: "ST2: TWIN", dropShield: 'chrono', dropHelmet: 'twin'},
+    3: {hp: 130, spd: 6.5, col: '#3498db', t: "ST3: TRIAD", dropShield: 'resonance', dropHelmet: 'triad'},
+    4: {hp: 150, spd: 7, col: '#f1c40f', t: "ST4: CHAOS", dropShield: 'chaos', dropHelmet: 'chaos'},
+    5: {hp: 200, spd: 8, col: '#e74c3c', t: "FINAL STAGE: ARCHMAGE", dropShield: 'mirror', dropHelmet: 'archmage'}
 };
 
-const SKIN_DETAILS = {
-    default: { title: "Default Shield", ico: "🔘", desc: "Balanced performance standard shield. No special stat modifications." },
-    brute: { title: "Brute's Bulwark", ico: "🔴", desc: "Forged plate expansions widen your parry window radius by 25% for easy deflections." },
-    chrono: { title: "Chrono Deflector", ico: "🟣", desc: "Chronomancy warp space coordinates to slow down incoming fireballs by 20%." },
-    resonance: { title: "Resonance Ward", ico: "🔵", desc: "Failsafe sound harmonic lines allow 1 early click per stage without resetting combo streaks." },
-    chaos: { title: "Chaos Core", ico: "🟡", desc: "Reality-bending singularity gives each successful parry hit a 15% chance to heal 1 heart." },
-    mirror: { title: "Cosmic Mirror", ico: "💠", desc: "Archmage matrix grants successful parries a 20% chance to fire a double-damage replica, and a 10% chance to restore 1 heart." }
+// Shield stats
+const SHIELD_STATS = {
+    default: { name: "Default Core", ico: "🔘", desc: "Standard shield. No special bonus.", parryWindow: 0, slow: 0, reflect: 0, healParry: 0, replica: 0, replicaHeal: 0, maxHpBonus: 0 },
+    brute: { name: "Brute's Bulwark", ico: "🔴", desc: "+25% parry window.", parryWindow: 0.25, slow: 0, reflect: 0, healParry: 0, replica: 0, replicaHeal: 0, maxHpBonus: 0 },
+    chrono: { name: "Chrono Deflector", ico: "🟣", desc: "Slows projectiles by 20%.", parryWindow: 0, slow: 0.20, reflect: 0, healParry: 0, replica: 0, replicaHeal: 0, maxHpBonus: 0 },
+    resonance: { name: "Resonance Ward", ico: "🔵", desc: "10% chance to reflect projectile when hit.", parryWindow: 0, slow: 0, reflect: 0.10, healParry: 0, replica: 0, replicaHeal: 0, maxHpBonus: 0 },
+    chaos: { name: "Chaos Core", ico: "🟡", desc: "15% chance to heal 1 heart on parry.", parryWindow: 0, slow: 0, reflect: 0, healParry: 0.15, replica: 0, replicaHeal: 0, maxHpBonus: 0 },
+    mirror: { name: "Cosmic Mirror", ico: "💠", desc: "20% replica + 10% heal on parry.", parryWindow: 0, slow: 0, reflect: 0, healParry: 0, replica: 0.20, replicaHeal: 0.10, maxHpBonus: 0 }
 };
 
-let cleared = JSON.parse(localStorage.getItem('parry_cleared')) || [], badges = JSON.parse(localStorage.getItem('parry_badges')) || [], skins = JSON.parse(localStorage.getItem('parry_skins')) || ['default'];
+// Helmet stats (enhanced versions of shields)
+const HELMET_STATS = {
+    recruit: { name: "Recruit's Sallet", ico: "🪖", desc: "+1 max HP.", parryWindow: 0, slow: 0, reflect: 0, healParry: 0, replica: 0, replicaHeal: 0, maxHpBonus: 1 },
+    brute: { name: "Brute's Horned Helm", ico: "🔴", desc: "+40% parry window.", parryWindow: 0.40, slow: 0, reflect: 0, healParry: 0, replica: 0, replicaHeal: 0, maxHpBonus: 0 },
+    twin: { name: "Twin's Linked Visor", ico: "🟣", desc: "Slows projectiles by 35%.", parryWindow: 0, slow: 0.35, reflect: 0, healParry: 0, replica: 0, replicaHeal: 0, maxHpBonus: 0 },
+    triad: { name: "Triad's Prism Helm", ico: "🔵", desc: "20% chance to reflect projectile when hit.", parryWindow: 0, slow: 0, reflect: 0.20, healParry: 0, replica: 0, replicaHeal: 0, maxHpBonus: 0 },
+    chaos: { name: "Chaos Crown", ico: "🟡", desc: "25% chance to heal 1 heart on parry.", parryWindow: 0, slow: 0, reflect: 0, healParry: 0.25, replica: 0, replicaHeal: 0, maxHpBonus: 0 },
+    archmage: { name: "Archmage's Star-Cap", ico: "💠", desc: "35% replica + 20% heal on parry.", parryWindow: 0, slow: 0, reflect: 0, healParry: 0, replica: 0.35, replicaHeal: 0.20, maxHpBonus: 0 }
+};
 
-function addP(s, t = 'in', x = B.x) { if (activeSkin === 'chrono' && t === 'in') s *= 0.8; projs.push({x, y: P.y, s, vx: -s, sz: 10, act: true, t}); }
+function getMaxHp() {
+    const shield = SHIELD_STATS[activeShield] || SHIELD_STATS.default;
+    const helmet = HELMET_STATS[activeHelmet] || HELMET_STATS.recruit;
+    return 3 + shield.maxHpBonus + helmet.maxHpBonus;
+}
+
+function getActiveStats() {
+    const shield = SHIELD_STATS[activeShield] || SHIELD_STATS.default;
+    const helmet = HELMET_STATS[activeHelmet] || HELMET_STATS.recruit;
+    let parryWindow = shield.parryWindow + helmet.parryWindow;
+    let slow = shield.slow + helmet.slow;
+    let reflect = shield.reflect + helmet.reflect;
+    let healParry = shield.healParry + helmet.healParry;
+    let replica = shield.replica + helmet.replica;
+    let replicaHeal = shield.replicaHeal + helmet.replicaHeal;
+    
+    // Synergy detection (matching boss theme)
+    const isSynergy = (activeShield === 'brute' && activeHelmet === 'brute') ||
+                      (activeShield === 'chrono' && activeHelmet === 'twin') ||
+                      (activeShield === 'resonance' && activeHelmet === 'triad') ||
+                      (activeShield === 'chaos' && activeHelmet === 'chaos') ||
+                      (activeShield === 'mirror' && activeHelmet === 'archmage');
+    
+    if (isSynergy) {
+        if (activeShield === 'brute') parryWindow = 0.60;
+        if (activeShield === 'chrono') slow = 0.50;
+        if (activeShield === 'resonance') reflect = 0.30;
+        if (activeShield === 'chaos') healParry = 0.35;
+        if (activeShield === 'mirror') { replica = 0.50; replicaHeal = 0.30; }
+    }
+    return { parryWindow, slow, reflect, healParry, replica, replicaHeal, isSynergy };
+}
+
+function updateMaxHp() {
+    const maxHp = getMaxHp();
+    if (hp > maxHp) hp = maxHp;
+    let hearts = '';
+    for (let i = 0; i < maxHp; i++) hearts += (i < hp) ? '❤️ ' : '🖤 ';
+    document.getElementById('player-hp').innerHTML = `HP: ${hearts}`;
+}
+
+function addProjectile(speed, type = 'in', x = B.x) {
+    const stats = getActiveStats();
+    let finalSpeed = speed;
+    if (type === 'in' && stats.slow > 0) finalSpeed = speed * (1 - stats.slow);
+    projs.push({x, y: P.y, vx: -finalSpeed, sz: 10, active: true, type, dmg: 10});
+}
 
 function spawn() {
-    const c = L_DATA[lvl]; if (lvl === 1) addP(c.spd + score * 0.2);
-    else if (lvl === 2) { addP(c.spd); bCount = 1; sTime = 30; } 
-    else if (lvl === 3) { addP(c.spd); bCount = 2; sTime = 25; } 
-    else if (lvl === 4) { addP(c.spd); sTimers = [Math.floor(Math.random() * 25) + 15, Math.floor(Math.random() * 35) + 45]; }
+    const c = L_DATA[lvl];
+    if (lvl === 1) addProjectile(c.spd + score * 0.2);
+    else if (lvl === 2) { addProjectile(c.spd); bCount = 1; sTime = 30; } 
+    else if (lvl === 3) { addProjectile(c.spd); bCount = 2; sTime = 25; } 
+    else if (lvl === 4) { addProjectile(c.spd); sTimers = [Math.floor(Math.random() * 25) + 15, Math.floor(Math.random() * 35) + 45]; }
     else if (lvl === 5) { 
         let accumulatedDelay = 0; sTimers = [];
         for (let i = 0; i < 5; i++) {
@@ -38,78 +101,235 @@ function spawn() {
     }
 }
 
-function sLvl(n) {
-    lvl = n; bhp = L_DATA[lvl].hp; projs = []; sTime = 90; bCount = 0; sTimers = []; hp = 3; isWaitingToStart = false; hitTaken = false; resUsed = false;
-    document.getElementById('level-display').innerText = L_DATA[lvl].t; document.getElementById('level-display').style.color = L_DATA[lvl].col;
-    const b = document.getElementById('boss-hp'); b.style.backgroundColor = L_DATA[lvl].col; b.style.boxShadow = `0 0 10px ${L_DATA[lvl].col}`; b.style.width = '100%';
-    document.getElementById('player-hp').innerText = `HP: ❤️❤️❤️`; document.getElementById('drop-alert').innerText = ''; updateBtnUI();
+function selectStage(n) {
+    document.getElementById('game-over-screen').classList.add('hidden');
+    document.getElementById('item-modal').classList.add('hidden');
+    over = false; 
+    score = 0; 
+    combo = 0; 
+    maxCombo = 0; 
+    P.st = 'idle'; 
+    P.tm = 0; 
+    shake = 0;
+    lvl = n;
+    const boss = L_DATA[lvl];
+    bhp = boss.hp;
+    projs = [];
+    sTime = 90;
+    bCount = 0;
+    sTimers = [];
+    isWaitingToStart = false;
+    hitTaken = false;
+    // FIX: Reset HP to full max
+    hp = getMaxHp();
+    updateMaxHp();
+    updateUI();
+    document.getElementById('level-display').innerHTML = boss.t;
+    document.getElementById('level-display').style.color = boss.col;
+    const b = document.getElementById('boss-hp');
+    b.style.backgroundColor = boss.col;
+    b.style.boxShadow = `0 0 10px ${boss.col}`;
+    b.style.width = '100%';
+    updateBtnUI();
 }
 
-function selectStage(n) { document.getElementById('game-over-screen').classList.add('hidden'); document.getElementById('item-modal').classList.add('hidden'); over = false; score = 0; combo = 0; maxCombo = 0; P.st = 'idle'; P.tm = 0; shake = 0; updateUI(); sLvl(n); }
+function updateUI() {
+    document.getElementById('score').innerHTML = `Combo: ${combo} | Parries: ${score}`;
+}
 
-function updateBtnUI() { document.querySelectorAll('.stage-btn').forEach((b, i) => { if (i + 1 === lvl) b.classList.add('active'); else b.classList.remove('active'); }); renderInventoryUI(); }
+function updateBtnUI() {
+    document.querySelectorAll('.stage-btn').forEach((b, i) => {
+        if (i + 1 === lvl) b.classList.add('active');
+        else b.classList.remove('active');
+    });
+    renderInventoryUI();
+}
+
+let pendingType = null, pendingId = null;
 
 function clickSkin(id) {
-    if (skins.includes(id)) {
-        selectedSkinPending = id; const details = SKIN_DETAILS[id];
-        document.getElementById('modal-icon').innerText = details.ico;
-        document.getElementById('modal-title').innerText = details.title;
-        document.getElementById('modal-desc').innerText = details.desc;
+    if (ownedShields.includes(id)) {
+        pendingType = 'shield';
+        pendingId = id;
+        const details = SHIELD_STATS[id];
+        document.getElementById('modal-icon').innerHTML = details.ico;
+        document.getElementById('modal-title').innerHTML = details.name;
+        document.getElementById('modal-desc').innerHTML = details.desc;
+        const preview = document.getElementById('synergy-preview');
+        if (ownedHelmets.includes(id)) {
+            preview.innerHTML = `🔗 SYNERGY: Pair with ${HELMET_STATS[id].name} for enhanced effects!`;
+        } else {
+            preview.innerHTML = '';
+        }
         document.getElementById('item-modal').classList.remove('hidden');
     }
 }
-function closeModal() { document.getElementById('item-modal').classList.add('hidden'); }
-function confirmEquip() { activeSkin = selectedSkinPending; renderInventoryUI(); closeModal(); }
+
+function clickHelmet(id) {
+    if (ownedHelmets.includes(id)) {
+        pendingType = 'helmet';
+        pendingId = id;
+        const details = HELMET_STATS[id];
+        document.getElementById('modal-icon').innerHTML = details.ico;
+        document.getElementById('modal-title').innerHTML = details.name;
+        document.getElementById('modal-desc').innerHTML = details.desc;
+        const preview = document.getElementById('synergy-preview');
+        if (ownedShields.includes(id)) {
+            preview.innerHTML = `🔗 SYNERGY: Pair with ${SHIELD_STATS[id].name} for enhanced effects!`;
+        } else {
+            preview.innerHTML = '';
+        }
+        document.getElementById('item-modal').classList.remove('hidden');
+    }
+}
+
+function closeModal() {
+    document.getElementById('item-modal').classList.add('hidden');
+    pendingType = null;
+    pendingId = null;
+}
+
+function confirmEquip() {
+    if (pendingType === 'shield') {
+        activeShield = pendingId;
+    } else if (pendingType === 'helmet') {
+        activeHelmet = pendingId;
+    }
+    // FIX: When equipping, ensure HP doesn't exceed new max
+    const maxHp = getMaxHp();
+    if (hp > maxHp) hp = maxHp;
+    updateMaxHp();
+    renderInventoryUI();
+    closeModal();
+}
 
 function checkLootDrops() {
-    let txt = '', r = Math.random() * 100;
-    if (lvl === 1 && r <= 20 && !skins.includes('brute')) { skins.push('brute'); txt = '🏆 DROP: Brute Bulwark Unlocked!'; }
-    if (lvl === 2 && r <= 15 && !skins.includes('chrono')) { skins.push('chrono'); txt = '🏆 DROP: Chrono Deflector Unlocked!'; }
-    if (lvl === 3 && r <= 10 && !skins.includes('resonance')) { skins.push('resonance'); txt = '🏆 DROP: Resonance Ward Unlocked!'; }
-    if (lvl === 4 && r <= 5 && !skins.includes('chaos')) { skins.push('chaos'); txt = '🏆 DROP: Chaos Core Unlocked!'; }
-    if (lvl === 5 && r <= 2 && !skins.includes('mirror')) { skins.push('mirror'); txt = '🏆 DROP: Cosmic Mirror Unlocked!'; }
-    if (txt) { localStorage.setItem('parry_skins', JSON.stringify(skins)); document.getElementById('drop-alert').innerText = txt; }
+    const boss = L_DATA[lvl];
+    let msg = '';
+    if (boss.dropShield && !ownedShields.includes(boss.dropShield)) {
+        if (Math.random() < 0.2) {
+            ownedShields.push(boss.dropShield);
+            msg += `🛡️ ${SHIELD_STATS[boss.dropShield].name} `;
+        }
+    }
+    if (boss.dropHelmet && !ownedHelmets.includes(boss.dropHelmet)) {
+        let chance = (lvl === 1 ? 0.2 : lvl === 2 ? 0.15 : lvl === 3 ? 0.10 : lvl === 4 ? 0.05 : 0.02);
+        if (Math.random() < chance) {
+            ownedHelmets.push(boss.dropHelmet);
+            msg += `🪖 ${HELMET_STATS[boss.dropHelmet].name} `;
+        }
+    }
+    if (msg) {
+        localStorage.setItem('parry_shields', JSON.stringify(ownedShields));
+        localStorage.setItem('parry_helmets', JSON.stringify(ownedHelmets));
+        document.getElementById('drop-alert').innerHTML = `🏆 DROP: ${msg}!`;
+        renderInventoryUI();
+    }
 }
 
 function renderInventoryUI() {
-    ['default', 'brute', 'chrono', 'resonance', 'chaos', 'mirror'].forEach(id => { const s = document.getElementById('skin-' + id); if (skins.includes(id)) s.className = (activeSkin === id) ? "skin-slot active" : "skin-slot unlocked"; else s.className = "skin-slot locked"; });
-    ['flawless', 'combo', 'reflex', 'champion'].forEach(id => { const b = document.getElementById('badge-' + id); if (badges.includes(id)) b.className = "badge-slot unlocked"; else b.className = "badge-slot locked"; });
+    // Shields
+    for (let id of ['default', 'brute', 'chrono', 'resonance', 'chaos', 'mirror']) {
+        const el = document.getElementById('skin-' + id);
+        if (el) {
+            if (ownedShields.includes(id)) {
+                el.className = (activeShield === id) ? "skin-slot active" : "skin-slot unlocked";
+            } else {
+                el.className = "skin-slot locked";
+            }
+        }
+    }
+    // Helmets
+    for (let id of ['recruit', 'brute', 'twin', 'triad', 'chaos', 'archmage']) {
+        const el = document.getElementById('helmet-' + id);
+        if (el) {
+            if (ownedHelmets.includes(id)) {
+                el.className = (activeHelmet === id) ? "helmet-slot active" : "helmet-slot unlocked";
+            } else {
+                el.className = "helmet-slot locked";
+            }
+        }
+    }
+    // Badges
+    for (let id of ['flawless', 'combo', 'reflex', 'champion']) {
+        const el = document.getElementById('badge-' + id);
+        if (el) {
+            if (badges.includes(id)) el.className = "badge-slot unlocked";
+            else el.className = "badge-slot locked";
+        }
+    }
 }
 
-function unlockBadge(id) { if (!badges.includes(id)) { badges.push(id); localStorage.setItem('parry_badges', JSON.stringify(badges)); renderInventoryUI(); } }
-function updateUI() { document.getElementById('score').innerText = `Combo: ${combo} | Parries: ${score}`; }
+function unlockBadge(id) {
+    if (!badges.includes(id)) {
+        badges.push(id);
+        localStorage.setItem('parry_badges', JSON.stringify(badges));
+        renderInventoryUI();
+    }
+}
+
 function reset() {
-    hp = 3; score = 0; combo = 0; maxCombo = 0; over = false; P.st = 'idle'; P.tm = 0; shake = 0; isWaitingToStart = true; lvl = 0; projs = []; sTimers = [];
-    document.getElementById('game-over-screen').classList.add('hidden'); document.getElementById('item-modal').classList.add('hidden'); document.getElementById('level-display').innerText = "SELECT STAGE TO START";
-    document.getElementById('level-display').style.color = "#66fcf1"; document.getElementById('boss-hp').style.width = '0%'; document.getElementById('player-hp').innerText = `HP: ❤️❤️❤️`;
-    updateUI(); updateBtnUI();
+    // FIX: Reset to full max HP based on current equipment
+    hp = getMaxHp();
+    score = 0; 
+    combo = 0; 
+    maxCombo = 0; 
+    over = false; 
+    P.st = 'idle'; 
+    P.tm = 0; 
+    shake = 0; 
+    isWaitingToStart = true; 
+    lvl = 0; 
+    projs = []; 
+    sTimers = [];
+    document.getElementById('game-over-screen').classList.add('hidden');
+    document.getElementById('item-modal').classList.add('hidden');
+    document.getElementById('level-display').innerHTML = "SELECT STAGE TO START";
+    document.getElementById('level-display').style.color = "#66fcf1";
+    document.getElementById('boss-hp').style.width = '0%';
+    updateMaxHp();
+    updateUI();
+    updateBtnUI();
 }
 
 window.addEventListener('keydown', (e) => {
-    if (e.code === 'Space') { e.preventDefault(); }
-    if (e.code === 'Space' && !over && document.getElementById('item-modal').classList.contains('hidden')) {
-        if (isWaitingToStart) { selectStage(1); return; }
-        if (P.st === 'idle') {
-            P.st = 'parrying'; P.tm = 10; let target = null, minDist = 9999;
-            projs.forEach(p => { if (p.act && p.t === 'in') { let d = p.x - (P.x + S_OFF); if (d > -5 && d < minDist) { minDist = d; target = p; } } });
-            let validWindow = (activeSkin === 'brute') ? P_WIN * 1.25 : P_WIN;
-            if (target && minDist <= validWindow) {
-                target.vx = 12; target.t = 'ref'; score++; combo++; shake = 8; P.st = 'success'; P.tm = 0; if (combo > maxCombo) maxCombo = combo;
-                if (combo >= 5) unlockBadge('combo'); if (minDist >= validWindow - 2) unlockBadge('reflex');
-                
-                // Chaos Core Perk
-                if (activeSkin === 'chaos' && Math.random() <= 0.15 && hp < 3) { hp++; document.getElementById('player-hp').innerText = `HP: ${'❤️'.repeat(hp)}`; }
-                
-                // Cosmic Mirror Perk 1: 1/10 Heart Restoration Chance
-                if (activeSkin === 'mirror' && Math.random() <= 0.10 && hp < 3) { hp++; document.getElementById('player-hp').innerText = `HP: ${'❤️'.repeat(hp)}`; }
-                
-                // Cosmic Mirror Perk 2: 1/5 Double Damage Duplicate Projectile Chance
-                if (activeSkin === 'mirror' && Math.random() <= 0.20) {
-                    setTimeout(() => { if (!over) projs.push({x: P.x + S_OFF + 20, y: P.y, s: 12, vx: 12, sz: 8, act: true, t: 'ref', dmg: 20}); }, 100);
+    if (e.code === 'Space') {
+        e.preventDefault();
+        if (!over && document.getElementById('item-modal').classList.contains('hidden')) {
+            if (isWaitingToStart) { selectStage(1); return; }
+            if (P.st === 'idle') {
+                const stats = getActiveStats();
+                P.st = 'parrying'; P.tm = 10;
+                let target = null, minDist = 9999;
+                projs.forEach(p => { if (p.active && p.type === 'in') { let d = p.x - (P.x + S_OFF); if (d > -5 && d < minDist) { minDist = d; target = p; } } });
+                let validWindow = P_WIN + (stats.parryWindow * 40);
+                if (target && minDist <= validWindow) {
+                    target.active = false;
+                    score++; combo++; shake = 8; P.st = 'success'; P.tm = 0;
+                    if (combo > maxCombo) maxCombo = combo;
+                    if (combo >= 5) unlockBadge('combo');
+                    if (minDist <= 10) unlockBadge('reflex');
+                    
+                    // Heal on parry
+                    if (stats.healParry > 0 && Math.random() < stats.healParry && hp < getMaxHp()) {
+                        hp++;
+                        updateMaxHp();
+                    }
+                    // Replica on parry
+                    if (stats.replica > 0 && Math.random() < stats.replica) {
+                        projs.push({x: P.x + S_OFF + 20, y: P.y, vx: 12, sz: 8, active: true, type: 'replica', dmg: 20});
+                    }
+                    if (stats.replicaHeal > 0 && Math.random() < stats.replicaHeal && hp < getMaxHp()) {
+                        hp++;
+                        updateMaxHp();
+                    }
+                    updateUI();
+                } else {
+                    P.st = 'miss'; P.tm = 18;
+                    combo = 0;
+                    updateUI();
                 }
-                
-                updateUI();
-            } else { P.st = 'miss'; P.tm = 18; if (activeSkin === 'resonance' && !resUsed) resUsed = true; else combo = 0; updateUI(); }
+            }
         }
     }
     if (e.code === 'KeyR' && over) reset();
@@ -117,63 +337,164 @@ window.addEventListener('keydown', (e) => {
 
 function update() {
     if (over || isWaitingToStart) return;
-    if (shake > 0) shake--; if (P.tm > 0) { P.tm--; if (P.tm === 0) P.st = 'idle'; } if (P.tm === 0 && P.st === 'success') P.st = 'idle';
-    if (lvl === 2 && bCount === 1 && sTime === 1) { addP(L_DATA[lvl].spd); bCount = 0; }
-    if (lvl === 3 && bCount > 0 && sTime === 1) { addP(L_DATA[lvl].spd); bCount--; if(bCount > 0) sTime = 25; }
-    if (lvl === 4 && sTimers.length > 0) sTimers = sTimers.map(t => { if (t - 1 === 0) addP(L_DATA[lvl].spd); return t - 1; });
-    if (lvl === 5 && sTimers.length > 0) sTimers = sTimers.map(t => { if (t - 1 === 0) addP(L_DATA[lvl].spd); return t - 1; });
-    let act = bCount > 0 || projs.some(p => p.act) || sTimers.some(t => t > 0); if (!act) { if (--sTime <= 0) spawn(); } else if (sTime > 0) sTime--;
+    if (shake > 0) shake--;
+    if (P.tm > 0) { P.tm--; if (P.tm === 0) P.st = 'idle'; }
+    if (P.tm === 0 && P.st === 'success') P.st = 'idle';
     
-    projs.forEach(p => {
-        if (!p.act) return; p.x += p.vx;
-        if (p.t === 'in' && p.x <= P.x + 10) {
-            p.act = false; hp--; shake = 15; combo = 0; hitTaken = true; updateUI(); document.getElementById('player-hp').innerText = `HP: ${'❤️'.repeat(Math.max(0, hp))}`;
-            if (hp <= 0) { end(false); return; } if (!projs.some(pr => pr.act) && bCount === 0 && !sTimers.some(t => t > 0)) sNext();
-        }
-        if (p.t === 'ref' && p.x >= B.x) {
-            p.act = false; let damageDealt = (p.dmg !== undefined) ? p.dmg : 20; bhp -= damageDealt;
-            document.getElementById('boss-hp').style.width = `${Math.max(0, (bhp / L_DATA[lvl].hp) * 100)}%`;
-            if (bhp <= 0) {
-                if (!cleared.includes(lvl)) { cleared.push(lvl); localStorage.setItem('parry_cleared', JSON.stringify(cleared)); }
-                if (!hitTaken) unlockBadge('flawless'); if (cleared.length >= maxL) unlockBadge('champion');
-                checkLootDrops(); end(true); return;
+    if (lvl === 2 && bCount === 1 && sTime === 1) { addProjectile(L_DATA[lvl].spd); bCount = 0; }
+    if (lvl === 3 && bCount > 0 && sTime === 1) { addProjectile(L_DATA[lvl].spd); bCount--; if(bCount > 0) sTime = 25; }
+    if (lvl === 4 && sTimers.length > 0) sTimers = sTimers.map(t => { if (t - 1 === 0) addProjectile(L_DATA[lvl].spd); return t - 1; }).filter(t => t > 0);
+    if (lvl === 5 && sTimers.length > 0) sTimers = sTimers.map(t => { if (t - 1 === 0) addProjectile(L_DATA[lvl].spd); return t - 1; }).filter(t => t > 0);
+    
+    let act = bCount > 0 || projs.some(p => p.active) || sTimers.length > 0;
+    if (!act) { if (--sTime <= 0) spawn(); } else if (sTime > 0) sTime--;
+    
+    for (let i = 0; i < projs.length; i++) {
+        const p = projs[i];
+        if (!p.active) continue;
+        p.x += p.vx;
+        
+        // Hit player
+        if (p.type === 'in' && p.x <= P.x + 10) {
+            p.active = false;
+            const stats = getActiveStats();
+            let reflected = false;
+            if (stats.reflect > 0 && Math.random() < stats.reflect) {
+                projs.push({x: p.x + 20, y: p.y, vx: 12, sz: 8, active: true, type: 'reflect', dmg: 15});
+                reflected = true;
             }
-            if (!projs.some(pr => pr.act) && bCount === 0 && !sTimers.some(t => t > 0)) sNext();
+            if (!reflected) {
+                hp--;
+                updateMaxHp();
+                combo = 0;
+                hitTaken = true;
+                updateUI();
+                if (hp <= 0) { end(false); return; }
+            }
+            continue;
         }
-        if (p.x < 0 || p.x > canvas.width) p.act = false;
-    });
+        // Hit boss
+        if ((p.type === 'replica' || p.type === 'reflect') && p.x >= B.x) {
+            p.active = false;
+            bhp -= p.dmg || 10;
+            const boss = L_DATA[lvl];
+            const percent = Math.max(0, (bhp / boss.hp) * 100);
+            document.getElementById('boss-hp').style.width = `${percent}%`;
+            if (bhp <= 0) { end(true); return; }
+            continue;
+        }
+        if (p.x < 0 || p.x > canvas.width) p.active = false;
+    }
+    projs = projs.filter(p => p.active);
 }
 
-function sNext() { projs = []; sTimers = []; sTime = lvl === 5 ? 95 : lvl === 4 ? 85 : (lvl === 2 || lvl === 3) ? 75 : 50; }
+function end(w) {
+    over = true;
+    const s = document.getElementById('game-over-screen'), t = document.getElementById('game-over-title'), b = document.getElementById('game-over-sub');
+    s.classList.remove('hidden');
+    t.innerText = w ? "VICTORY ACHIEVED!" : "GAME OVER";
+    t.style.color = w ? "#00ffcc" : "#ff4d4d";
+    b.innerText = w ? "You defeated this boss! New loot may appear!" : "Press R to retry.";
+    if (w) {
+        if (!cleared.includes(lvl)) { cleared.push(lvl); localStorage.setItem('parry_cleared', JSON.stringify(cleared)); }
+        if (!hitTaken) unlockBadge('flawless');
+        if (cleared.length >= maxL) unlockBadge('champion');
+        checkLootDrops();
+    }
+}
 
 function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height); ctx.save(); if (shake > 0) ctx.translate((Math.random() - 0.5) * 6, (Math.random() - 0.5) * 6);
-    ctx.strokeStyle = '#455a64'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(0, 270); ctx.lineTo(canvas.width, 270); ctx.stroke();
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.save();
+    if (shake > 0) ctx.translate((Math.random() - 0.5) * 6, (Math.random() - 0.5) * 6);
+    ctx.strokeStyle = '#455a64';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(0, 270);
+    ctx.lineTo(canvas.width, 270);
+    ctx.stroke();
     
-    let bCol = isWaitingToStart ? '#455a64' : L_DATA[lvl].col; ctx.fillStyle = bCol; ctx.shadowBlur = isWaitingToStart ? 0 : 15; ctx.shadowColor = bCol;
-    ctx.beginPath(); ctx.moveTo(B.x + B.w / 2, B.y); ctx.lineTo(B.x, B.y + B.h); ctx.lineTo(B.x + B.w, B.y + B.h); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = '#0b0c10'; ctx.fillRect(B.x + 12, B.y + 15, 26, 20); 
-    ctx.fillStyle = isWaitingToStart ? '#555555' : '#ff3333'; 
-    ctx.fillRect(B.x + 15, B.y + 22, 7, 4); ctx.fillRect(B.x + 28, B.y + 22, 7, 4); 
-    ctx.fillStyle = bCol; ctx.fillRect(B.x - 15, B.y + 35 + Math.sin(Date.now() / 200) * 5, 12, 12);
+    let bCol = isWaitingToStart ? '#455a64' : L_DATA[lvl].col;
+    ctx.fillStyle = bCol;
+    ctx.shadowBlur = isWaitingToStart ? 0 : 15;
+    ctx.shadowColor = bCol;
+    ctx.beginPath();
+    ctx.moveTo(B.x + B.w / 2, B.y);
+    ctx.lineTo(B.x, B.y + B.h);
+    ctx.lineTo(B.x + B.w, B.y + B.h);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#0b0c10';
+    ctx.fillRect(B.x + 12, B.y + 15, 26, 20);
+    ctx.fillStyle = isWaitingToStart ? '#555555' : '#ff3333';
+    ctx.fillRect(B.x + 15, B.y + 22, 7, 4);
+    ctx.fillRect(B.x + 28, B.y + 22, 7, 4);
     
-    ctx.save(); let kc = '#66fcf1', aa = '#45a29e'; if (P.st === 'miss') { kc = '#555555'; aa = '#333333'; } else if (P.st === 'success') { kc = '#00ffcc'; aa = '#ffffff'; }
-    ctx.fillStyle = '#451212'; ctx.beginPath(); ctx.moveTo(P.x - 10, P.y - 10); ctx.lineTo(P.x - 35 + Math.sin(Date.now() / 150) * 8, P.y + 20); ctx.lineTo(P.x - 10, P.y + 20); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = kc; ctx.shadowBlur = 15; ctx.shadowColor = kc; ctx.fillRect(P.x - 15, P.y - 20, 30, 40);
-    ctx.fillStyle = '#1f2833'; ctx.fillRect(P.x - 5, P.y - 15, 20, 10); ctx.fillStyle = aa; ctx.fillRect(P.x, P.y - 12, 15, 3); 
-    ctx.beginPath(); ctx.arc(P.x - 5, P.y - 22, 6, 0, Math.PI * 2); ctx.fill(); ctx.restore(); ctx.lineWidth = 5;
+    ctx.save();
+    let kc = '#66fcf1', aa = '#45a29e';
+    if (P.st === 'miss') { kc = '#555555'; aa = '#333333'; }
+    else if (P.st === 'success') { kc = '#00ffcc'; aa = '#ffffff'; }
+    ctx.fillStyle = '#451212';
+    ctx.beginPath();
+    ctx.moveTo(P.x - 10, P.y - 10);
+    ctx.lineTo(P.x - 35 + Math.sin(Date.now() / 150) * 8, P.y + 20);
+    ctx.lineTo(P.x - 10, P.y + 20);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = kc;
+    ctx.shadowBlur = 15;
+    ctx.shadowColor = kc;
+    ctx.fillRect(P.x - 15, P.y - 20, 30, 40);
+    ctx.fillStyle = '#1f2833';
+    ctx.fillRect(P.x - 5, P.y - 15, 20, 10);
+    ctx.fillStyle = aa;
+    ctx.fillRect(P.x, P.y - 12, 15, 3);
+    ctx.beginPath();
+    ctx.arc(P.x - 5, P.y - 22, 6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
     
-    if (P.st === 'parrying' || P.st === 'success') ctx.strokeStyle = '#ffffff'; else if (P.st === 'miss') ctx.strokeStyle = '#ff3333';
-    else { ctx.strokeStyle = activeSkin === 'brute' ? '#ff4d4d' : activeSkin === 'chrono' ? '#bf55ec' : activeSkin === 'resonance' ? '#3498db' : activeSkin === 'chaos' ? '#f1c40f' : activeSkin === 'mirror' ? '#e74c3c' : '#45a29e'; }
-    ctx.shadowColor = ctx.strokeStyle; ctx.beginPath(); ctx.moveTo(P.x + S_OFF, P.y - 25); ctx.lineTo(P.x + S_OFF, P.y + 25); ctx.stroke();
+    const stats = getActiveStats();
+    ctx.lineWidth = 5;
+    if (P.st === 'parrying' || P.st === 'success') ctx.strokeStyle = '#ffffff';
+    else if (P.st === 'miss') ctx.strokeStyle = '#ff3333';
+    else ctx.strokeStyle = '#45a29e';
+    ctx.shadowColor = ctx.strokeStyle;
+    ctx.beginPath();
+    ctx.moveTo(P.x + S_OFF, P.y - 25);
+    ctx.lineTo(P.x + S_OFF, P.y + 25);
+    ctx.stroke();
     
-    projs.forEach(p => { if (!p.act) return; ctx.save(); ctx.fillStyle = p.t === 'ref' ? '#00ffcc' : '#ffb300'; ctx.shadowColor = ctx.fillStyle; ctx.shadowBlur = p.t === 'ref' ? 20 : 15; ctx.beginPath(); ctx.arc(p.x, p.y, p.sz, 0, Math.PI * 2); ctx.fill(); ctx.restore(); });
-    if (isWaitingToStart) { ctx.fillStyle = 'rgba(255, 255, 255, 0.8)'; ctx.font = 'bold 22px sans-serif'; ctx.textAlign = 'center'; ctx.fillText("CHOOSE YOUR OPPONENT TO START", canvas.width / 2, canvas.height / 2 - 20); } 
-    else if (sTime > 35 && !projs.some(p => p.act) && bCount === 0 && !sTimers.some(t => t > 0)) { ctx.fillStyle = 'rgba(255, 255, 255, 0.8)'; ctx.font = 'bold 22px sans-serif'; ctx.textAlign = 'center'; ctx.fillText(L_DATA[lvl].t, canvas.width / 2, canvas.height / 2 - 20); }
+    projs.forEach(p => {
+        if (!p.active) return;
+        ctx.save();
+        if (p.type === 'replica') ctx.fillStyle = '#00ffaa';
+        else if (p.type === 'reflect') ctx.fillStyle = '#ffaa66';
+        else ctx.fillStyle = '#ffb300';
+        ctx.shadowColor = ctx.fillStyle;
+        ctx.shadowBlur = 15;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.sz, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    });
+    
+    if (isWaitingToStart) {
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+        ctx.font = 'bold 22px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText("CHOOSE YOUR OPPONENT TO START", canvas.width / 2, canvas.height / 2 - 20);
+    }
     ctx.restore();
 }
 
-function end(w) { over = true; const s = document.getElementById('game-over-screen'), t = document.getElementById('game-over-title'), b = document.getElementById('game-over-sub'); s.classList.remove('hidden'); t.innerText = w ? "VICTORY ACHIEVED!" : "GAME OVER"; t.style.color = w ? "#00ffcc" : "#ff4d4d"; t.style.textShadow = `0 0 20px ${t.style.color}`; b.innerText = w ? `You defeated this boss pattern! Select another fight or press R to clear.` : "Press R to retry."; }
+function gameLoop() {
+    update();
+    draw();
+    requestAnimationFrame(gameLoop);
+}
 
-function gameLoop() { update(); draw(); requestAnimationFrame(gameLoop); }
-reset(); renderInventoryUI(); gameLoop();
+reset();
+renderInventoryUI();
+updateMaxHp();
+gameLoop();

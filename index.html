@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Parry Master: Armory Arena</title>
     <link rel="stylesheet" href="style.css">
 </head>
@@ -33,6 +34,7 @@
                 <div id="modal-icon">🔘</div>
                 <h2 id="modal-title">Shield Name</h2>
                 <p id="modal-desc">Ability description goes here...</p>
+                <div id="synergy-preview" style="font-size: 11px; color: #c5a100; margin: 8px 0;"></div>
                 <button id="modal-equip-btn" onclick="confirmEquip()">Equip Shield</button>
             </div>
         </div>
@@ -48,6 +50,16 @@
         <div class="skin-slot locked" id="skin-mirror" onclick="clickSkin('mirror')">💠 Cosmic Mirror</div>
     </div>
     
+    <!-- HELMET RACK -->
+    <div id="helmet-case">
+        <div class="helmet-slot active" id="helmet-recruit" onclick="clickHelmet('recruit')">🪖 Recruit</div>
+        <div class="helmet-slot locked" id="helmet-brute" onclick="clickHelmet('brute')">🔴 Horned Helm</div>
+        <div class="helmet-slot locked" id="helmet-twin" onclick="clickHelmet('twin')">🟣 Linked Visor</div>
+        <div class="helmet-slot locked" id="helmet-triad" onclick="clickHelmet('triad')">🔵 Prism Helm</div>
+        <div class="helmet-slot locked" id="helmet-chaos" onclick="clickHelmet('chaos')">🟡 Chaos Crown</div>
+        <div class="helmet-slot locked" id="helmet-archmage" onclick="clickHelmet('archmage')">💠 Star-Cap</div>
+    </div>
+    
     <!-- ACHIEVED BADGE STORAGE -->
     <div id="badge-case">
         <div class="badge-slot locked" id="badge-flawless" title="Beat any boss without taking damage">🛡️ UNTOUCHABLE</div>
@@ -56,7 +68,7 @@
         <div class="badge-slot locked" id="badge-champion" title="Defeat all boss styles">👑 CHAMPION</div>
     </div>
     
-    <!-- FUGHT LEVEL SELECTION CONSOLE -->
+    <!-- FIGHT LEVEL SELECTION CONSOLE -->
     <div id="selector-panel">
         <button class="stage-btn" onclick="selectStage(1)">ST1: BRUTE</button>
         <button class="stage-btn" onclick="selectStage(2)">ST2: TWIN</button>
