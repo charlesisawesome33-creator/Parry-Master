@@ -204,7 +204,7 @@ p {
     box-shadow: 0 0 10px #66fcf1;
 }
 
-#armory-case, #helmet-case, #badge-case {
+#armory-case, #helmet-case, #sword-case {
     display: flex;
     gap: 12px;
     background: #11141a;
@@ -215,7 +215,7 @@ p {
     justify-content: center;
 }
 
-.skin-slot, .helmet-slot {
+.skin-slot, .helmet-slot, .sword-slot {
     font-size: 12px;
     font-weight: bold;
     padding: 6px 12px;
@@ -225,29 +225,56 @@ p {
     user-select: none;
 }
 
-.skin-slot.locked, .helmet-slot.locked {
+.skin-slot.locked, .helmet-slot.locked, .sword-slot.locked {
     background: #1a1e24;
     color: #555;
     border: 1px dashed #333;
     cursor: not-allowed;
 }
 
-.skin-slot.unlocked, .helmet-slot.unlocked {
+.skin-slot.unlocked, .helmet-slot.unlocked, .sword-slot.unlocked {
     background: #1f2833;
     color: #a4b3c6;
     border: 1px solid #45a29e;
 }
 
-.skin-slot.unlocked:hover, .helmet-slot.unlocked:hover {
+.skin-slot.unlocked:hover, .helmet-slot.unlocked:hover, .sword-slot.unlocked:hover {
     box-shadow: 0 0 8px #66fcf1;
     color: #66fcf1;
 }
 
-.skin-slot.active, .helmet-slot.active {
+.skin-slot.active, .helmet-slot.active, .sword-slot.active {
     background: #24303f;
     color: #fff;
     border: 2px solid #66fcf1;
     box-shadow: 0 0 10px rgba(102, 252, 241, 0.3);
+}
+
+.sword-slot.cooldown {
+    opacity: 0.5;
+    filter: grayscale(0.3);
+}
+
+#active-sword-indicator {
+    text-align: center;
+    margin: 10px auto;
+    padding: 5px 15px;
+    background: #1f2833;
+    border-radius: 20px;
+    display: inline-block;
+    font-size: 14px;
+    border: 1px solid #45a29e;
+}
+
+#active-sword {
+    color: #f1c40f;
+    font-weight: bold;
+}
+
+#sword-cooldown-indicator {
+    margin-left: 10px;
+    color: #ff4d4d;
+    font-size: 12px;
 }
 
 #selector-panel {
@@ -358,6 +385,25 @@ p {
     text-align: center;
 }
 
+/* Buff Indicator */
+#buff-indicator {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: rgba(0, 0, 0, 0.8);
+    border-radius: 8px;
+    padding: 8px 15px;
+    font-size: 14px;
+    font-weight: bold;
+    border-left: 4px solid #66fcf1;
+    z-index: 150;
+    transition: all 0.2s;
+}
+
+#buff-indicator.hidden {
+    display: none;
+}
+
 /* Relentless revive effect */
 @keyframes relentlessRevive {
     0% { opacity: 0; transform: scale(0.5); }
@@ -377,4 +423,54 @@ p {
     z-index: 1000;
     animation: relentlessRevive 1s ease-out;
     pointer-events: none;
+}
+
+/* Add to existing style.css */
+
+.sword-slot.cooldown {
+    opacity: 0.5;
+    filter: grayscale(0.3);
+    position: relative;
+}
+
+.sword-slot.cooldown::after {
+    content: "⏳";
+    position: absolute;
+    right: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 10px;
+}
+
+#active-sword-indicator {
+    text-align: center;
+    margin: 10px auto;
+    padding: 5px 15px;
+    background: #1f2833;
+    border-radius: 20px;
+    display: inline-block;
+    font-size: 14px;
+    border: 1px solid #45a29e;
+}
+
+#active-sword {
+    color: #f1c40f;
+    font-weight: bold;
+}
+
+#sword-cooldown-indicator {
+    margin-left: 10px;
+    color: #ff4d4d;
+    font-size: 12px;
+}
+
+/* Drop alert animations */
+@keyframes epicDrop {
+    0% { transform: scale(1); color: #f1c40f; }
+    50% { transform: scale(1.2); color: #ff6600; text-shadow: 0 0 20px #ff6600; }
+    100% { transform: scale(1); color: #f1c40f; }
+}
+
+#drop-alert {
+    animation: epicDrop 0.5s ease-out;
 }

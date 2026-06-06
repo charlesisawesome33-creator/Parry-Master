@@ -2,10 +2,21 @@ const canvas = document.getElementById('gameCanvas'), ctx = canvas.getContext('2
 let hp = 3, lvl = 0, bhp = 100, score = 0, combo = 0, maxCombo = 0, over = false, projs = [], bCount = 0, sTime = 60, shake = 0, sTimers = [], isWaitingToStart = true, hitTaken = false;
 let activeShield = 'default';
 let activeHelmet = 'recruit';
+let activeSword = null;
 let parryMessages = [];
 let reviveUsed = false;
 let reviveMessage = '';
 let reviveMessageTimer = 0;
+
+// Sword system variables
+let ownedSwords = JSON.parse(localStorage.getItem('parry_swords')) || [];
+let swordCooldown = 0;
+let swordCooldownMax = 360; // 6 seconds at 60fps
+let swordBuffDuration = 180; // 3 seconds at 60fps
+let swordBuffActive = false;
+let swordBuffRemaining = 0;
+let activeSwordBuff = null;
+
 const S_OFF = 30, maxL = 5, P = {x: 150, y: 250, st: 'idle', tm: 0}, B = {x: 650, y: 230, w: 50, h: 80}, P_WIN = 25;
 
 // Inventory data
@@ -19,11 +30,20 @@ const PLAYER_COLOR = '#66fcf1';
 const PLAYER_GLOW = '#88ffff';
 
 const L_DATA = {
-    1: {hp: 100, spd: 5, col: '#ff4d4d', glow: '#ff8888', t: "ST1: BRUTE", dropShield: 'brute', dropHelmet: 'brute', startDelay: 45},
-    2: {hp: 120, spd: 6, col: '#bf55ec', glow: '#d98eff', t: "ST2: TWIN", dropShield: 'chrono', dropHelmet: 'twin', startDelay: 50},
-    3: {hp: 130, spd: 6.5, col: '#3498db', glow: '#6ec4ff', t: "ST3: TRIAD", dropShield: 'resonance', dropHelmet: 'triad', startDelay: 55},
-    4: {hp: 150, spd: 7, col: '#f1c40f', glow: '#ffe066', t: "ST4: CHAOS", dropShield: 'chaos', dropHelmet: 'chaos', startDelay: 60},
-    5: {hp: 200, spd: 8, col: '#e74c3c', glow: '#ff7777', t: "FINAL STAGE: ARCHMAGE", dropShield: 'mirror', dropHelmet: 'archmage', startDelay: 70}
+    1: {hp: 100, spd: 5, col: '#ff4d4d', glow: '#ff8888', t: "ST1: BRUTE", dropShield: 'brute', dropHelmet: 'brute', dropSword: 'brute', startDelay: 45},
+    2: {hp: 120, spd: 6, col: '#bf55ec', glow: '#d98eff', t: "ST2: TWIN", dropShield: 'chrono', dropHelmet: 'twin', dropSword: 'twin', startDelay: 50},
+    3: {hp: 130, spd: 6.5, col: '#3498db', glow: '#6ec4ff', t: "ST3: TRIAD", dropShield: 'resonance', dropHelmet: 'triad', dropSword: 'triad', startDelay: 55},
+    4: {hp: 150, spd: 7, col: '#f1c40f', glow: '#ffe066', t: "ST4: CHAOS", dropShield: 'chaos', dropHelmet: 'chaos', dropSword: 'chaos', startDelay: 60},
+    5: {hp: 200, spd: 8, col: '#e74c3c', glow: '#ff7777', t: "FINAL STAGE: ARCHMAGE", dropShield: 'mirror', dropHelmet: 'archmage', dropSword: 'archmage', startDelay: 70}
+};
+
+// Sword data
+const SWORD_DATA = {
+    brute: { name: "Brute Cleaver", ico: "🔴", boss: 1, buffParryWindow: 0.25, desc: "For 3 seconds: +25% parry window", cooldown: "6 second cooldown" },
+    twin: { name: "Twin Fangs", ico: "🟣", boss: 2, buffSlow: 0.35, desc: "For 3 seconds: Slows projectiles by 35%", cooldown: "6 second cooldown" },
+    triad: { name: "Triad Edge", ico: "🔵", boss: 3, buffReflectOnHit: 0.20, desc: "For 3 seconds: 20% reflect on hit chance", cooldown: "6 second cooldown" },
+    chaos: { name: "Chaos Saber", ico: "🟡", boss: 4, buffHealParry: 0.25, desc: "For 3 seconds: 25% heal on parry chance", cooldown: "6 second cooldown" },
+    archmage: { name: "Archmage Blade", ico: "💠", boss: 5, buffExtraReplica: 0.35, buffExtraHeal: 0.20, desc: "For 3 seconds: 35% extra replica + 20% heal on parry", cooldown: "6 second cooldown" }
 };
 
 // Shield stats
@@ -50,7 +70,7 @@ const HELMET_STATS = {
     relentless: { name: "Relentless Helmet", ico: "🔥", desc: "Revives you to max HP upon death (once per run).", parryWindow: 0, slow: 0, reflectOnHit: 0, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 0 }
 };
 
-// Badge definitions for the Badge Book
+// Badge definitions
 const BADGE_DATA = {
     flawless: { name: "🛡️ UNTOUCHABLE", desc: "Beat any boss without taking damage", reward: "No reward (achievement only)" },
     combo: { name: "🔥 COMBO KING", desc: "Get a 5x Parry Combo", reward: "No reward (achievement only)" },
@@ -73,12 +93,23 @@ function getMaxHp() {
 function getActiveStats() {
     const shield = SHIELD_STATS[activeShield] || SHIELD_STATS.default;
     const helmet = HELMET_STATS[activeHelmet] || HELMET_STATS.recruit;
+    
     let parryWindow = shield.parryWindow + helmet.parryWindow;
     let slow = shield.slow + helmet.slow;
     let reflectOnHit = shield.reflectOnHit + helmet.reflectOnHit;
     let healParry = shield.healParry + helmet.healParry;
     let extraReplica = shield.extraReplica + helmet.extraReplica;
     let extraHeal = shield.extraHeal + helmet.extraHeal;
+    
+    // Apply sword buff if active
+    if (swordBuffActive && activeSwordBuff) {
+        if (activeSwordBuff.parryWindow) parryWindow += activeSwordBuff.parryWindow;
+        if (activeSwordBuff.slow) slow += activeSwordBuff.slow;
+        if (activeSwordBuff.reflectOnHit) reflectOnHit += activeSwordBuff.reflectOnHit;
+        if (activeSwordBuff.healParry) healParry += activeSwordBuff.healParry;
+        if (activeSwordBuff.extraReplica) extraReplica += activeSwordBuff.extraReplica;
+        if (activeSwordBuff.extraHeal) extraHeal += activeSwordBuff.extraHeal;
+    }
     
     return { parryWindow, slow, reflectOnHit, healParry, extraReplica, extraHeal };
 }
@@ -96,7 +127,6 @@ function updateMaxHp() {
     for (let i = 0; i < maxHp; i++) hearts += (i < hp) ? '❤️ ' : '🖤 ';
     document.getElementById('player-hp').innerHTML = `HP: ${hearts}`;
     
-    // Also update revive message display if active
     if (reviveMessageTimer > 0) {
         document.getElementById('player-hp').innerHTML += `<span style="color: #ff6600; margin-left: 10px;"> 🔥 ${reviveMessage} 🔥</span>`;
     }
@@ -143,6 +173,10 @@ function selectStage(n) {
     reviveUsed = false;
     reviveMessage = '';
     reviveMessageTimer = 0;
+    swordCooldown = 0;
+    swordBuffActive = false;
+    swordBuffRemaining = 0;
+    activeSwordBuff = null;
     lvl = n;
     const boss = L_DATA[lvl];
     bhp = boss.hp;
@@ -187,6 +221,7 @@ function clickSkin(id) {
         document.getElementById('modal-icon').innerHTML = details.ico;
         document.getElementById('modal-title').innerHTML = details.name;
         document.getElementById('modal-desc').innerHTML = details.desc;
+        document.getElementById('modal-equip-btn').innerHTML = 'Equip Shield';
         document.getElementById('item-modal').classList.remove('hidden');
     }
 }
@@ -199,6 +234,20 @@ function clickHelmet(id) {
         document.getElementById('modal-icon').innerHTML = details.ico;
         document.getElementById('modal-title').innerHTML = details.name;
         document.getElementById('modal-desc').innerHTML = details.desc;
+        document.getElementById('modal-equip-btn').innerHTML = 'Equip Helmet';
+        document.getElementById('item-modal').classList.remove('hidden');
+    }
+}
+
+function clickSword(id) {
+    if (ownedSwords.includes(id)) {
+        pendingType = 'sword';
+        pendingId = id;
+        const details = SWORD_DATA[id];
+        document.getElementById('modal-icon').innerHTML = details.ico;
+        document.getElementById('modal-title').innerHTML = details.name;
+        document.getElementById('modal-desc').innerHTML = `${details.desc} | ${details.cooldown}`;
+        document.getElementById('modal-equip-btn').innerHTML = 'Equip Sword';
         document.getElementById('item-modal').classList.remove('hidden');
     }
 }
@@ -214,6 +263,9 @@ function confirmEquip() {
         activeShield = pendingId;
     } else if (pendingType === 'helmet') {
         activeHelmet = pendingId;
+    } else if (pendingType === 'sword') {
+        activeSword = pendingId;
+        localStorage.setItem('parry_active_sword', activeSword);
     }
     const maxHp = getMaxHp();
     if (hp > maxHp) hp = maxHp;
@@ -222,29 +274,100 @@ function confirmEquip() {
     closeModal();
 }
 
+function useSwordAbility() {
+    if (!activeSword) {
+        document.getElementById('drop-alert').innerHTML = "❌ No sword equipped! Press F to use sword ability ❌";
+        setTimeout(() => { 
+            if (document.getElementById('drop-alert').innerHTML === "❌ No sword equipped! Press F to use sword ability ❌") 
+                document.getElementById('drop-alert').innerHTML = ""; 
+        }, 1500);
+        return false;
+    }
+    
+    if (swordCooldown > 0) {
+        const secondsLeft = Math.ceil(swordCooldown / 60);
+        document.getElementById('drop-alert').innerHTML = `⏳ Sword on cooldown! (${secondsLeft}s) ⏳`;
+        setTimeout(() => { 
+            if (document.getElementById('drop-alert').innerHTML === `⏳ Sword on cooldown! (${secondsLeft}s) ⏳`) 
+                document.getElementById('drop-alert').innerHTML = ""; 
+        }, 1000);
+        return false;
+    }
+    
+    // Activate sword buff
+    const sword = SWORD_DATA[activeSword];
+    activeSwordBuff = {};
+    if (sword.buffParryWindow) activeSwordBuff.parryWindow = sword.buffParryWindow;
+    if (sword.buffSlow) activeSwordBuff.slow = sword.buffSlow;
+    if (sword.buffReflectOnHit) activeSwordBuff.reflectOnHit = sword.buffReflectOnHit;
+    if (sword.buffHealParry) activeSwordBuff.healParry = sword.buffHealParry;
+    if (sword.buffExtraReplica) activeSwordBuff.extraReplica = sword.buffExtraReplica;
+    if (sword.buffExtraHeal) activeSwordBuff.extraHeal = sword.buffExtraHeal;
+    
+    swordBuffActive = true;
+    swordBuffRemaining = swordBuffDuration;
+    swordCooldown = swordCooldownMax;
+    
+    // Show activation message only
+    let buffText = `⚔️ ${sword.name} activated for 3 seconds! ⚔️`;
+    
+    document.getElementById('drop-alert').innerHTML = buffText;
+    setTimeout(() => { 
+        if (document.getElementById('drop-alert').innerHTML === buffText) 
+            document.getElementById('drop-alert').innerHTML = ""; 
+    }, 2000);
+    
+    renderSwordUI();
+    return true;
+}
+
 function checkLootDrops() {
     const boss = L_DATA[lvl];
     let msg = '';
+    let drops = [];
     let baseChance = (lvl === 1 ? 0.2 : lvl === 2 ? 0.15 : lvl === 3 ? 0.10 : lvl === 4 ? 0.05 : 0.02);
     let dropMultiplier = getDropMultiplier();
     let finalChance = baseChance * dropMultiplier;
+    
+    let droppedShield = false, droppedHelmet = false, droppedSword = false;
     
     if (boss.dropShield && !ownedShields.includes(boss.dropShield)) {
         if (Math.random() < finalChance) {
             ownedShields.push(boss.dropShield);
             msg += `🛡️ ${SHIELD_STATS[boss.dropShield].name} `;
+            drops.push(`🛡️ ${SHIELD_STATS[boss.dropShield].name}`);
+            droppedShield = true;
         }
     }
     if (boss.dropHelmet && !ownedHelmets.includes(boss.dropHelmet)) {
         if (Math.random() < finalChance) {
             ownedHelmets.push(boss.dropHelmet);
             msg += `🪖 ${HELMET_STATS[boss.dropHelmet].name} `;
+            drops.push(`🪖 ${HELMET_STATS[boss.dropHelmet].name}`);
+            droppedHelmet = true;
         }
     }
+    if (boss.dropSword && !ownedSwords.includes(boss.dropSword)) {
+        if (Math.random() < finalChance) {
+            ownedSwords.push(boss.dropSword);
+            msg += `⚔️ ${SWORD_DATA[boss.dropSword].name} `;
+            drops.push(`⚔️ ${SWORD_DATA[boss.dropSword].name}`);
+            droppedSword = true;
+        }
+    }
+    
+    if (drops.length === 3) {
+        document.getElementById('drop-alert').innerHTML = `🏆⭐ EPIC DROP: ${drops[0]} + ${drops[1]} + ${drops[2]}! ⭐🏆`;
+    } else if (drops.length === 2) {
+        document.getElementById('drop-alert').innerHTML = `🏆 DOUBLE DROP: ${drops[0]} + ${drops[1]}! 🏆`;
+    } else if (drops.length === 1) {
+        document.getElementById('drop-alert').innerHTML = `🏆 DROP: ${drops[0]}! 🏆`;
+    }
+    
     if (msg) {
         localStorage.setItem('parry_shields', JSON.stringify(ownedShields));
         localStorage.setItem('parry_helmets', JSON.stringify(ownedHelmets));
-        document.getElementById('drop-alert').innerHTML = `🏆 DROP: ${msg}!`;
+        localStorage.setItem('parry_swords', JSON.stringify(ownedSwords));
         renderInventoryUI();
     }
 }
@@ -272,6 +395,50 @@ function renderInventoryUI() {
             }
         }
     }
+    renderSwordUI();
+}
+
+function renderSwordUI() {
+    const allSwords = ['brute', 'twin', 'triad', 'chaos', 'archmage'];
+    for (let id of allSwords) {
+        const el = document.getElementById('sword-' + id);
+        if (el) {
+            if (ownedSwords.includes(id)) {
+                if (activeSword === id) {
+                    el.className = "sword-slot active";
+                    if (swordCooldown > 0) {
+                        el.classList.add('cooldown');
+                    } else {
+                        el.classList.remove('cooldown');
+                    }
+                } else {
+                    el.className = "sword-slot unlocked";
+                }
+            } else {
+                el.className = "sword-slot locked";
+            }
+        }
+    }
+    
+    const swordIndicator = document.getElementById('active-sword');
+    const cooldownIndicator = document.getElementById('sword-cooldown-indicator');
+    if (swordIndicator) {
+        if (activeSword) {
+            swordIndicator.innerHTML = `⚔️ ${SWORD_DATA[activeSword].ico} ${SWORD_DATA[activeSword].name}`;
+            if (swordCooldown > 0) {
+                const secondsLeft = Math.ceil(swordCooldown / 60);
+                cooldownIndicator.innerHTML = `⏳ ${secondsLeft}s`;
+            } else if (swordBuffActive) {
+                const secondsLeft = Math.ceil(swordBuffRemaining / 60);
+                cooldownIndicator.innerHTML = `✨ BUFF: ${secondsLeft}s ✨`;
+            } else {
+                cooldownIndicator.innerHTML = `✅ READY`;
+            }
+        } else {
+            swordIndicator.innerHTML = `⚔️ No Sword Equipped`;
+            cooldownIndicator.innerHTML = ``;
+        }
+    }
 }
 
 function checkCompletionistBadge() {
@@ -289,13 +456,11 @@ function attemptRevive() {
         const maxHp = getMaxHp();
         hp = maxHp;
         
-        // Set revive message to appear under HP
         reviveMessage = "RELENTLESS REVIVE!";
-        reviveMessageTimer = 90; // ~1.5 seconds at 60fps
+        reviveMessageTimer = 90;
         
         updateMaxHp();
         
-        // Also show in drop-alert for visibility
         document.getElementById('drop-alert').innerHTML = "🔥 REVIVED BY RELENTLESS HELMET! 🔥";
         setTimeout(() => {
             if (document.getElementById('drop-alert').innerHTML === "🔥 REVIVED BY RELENTLESS HELMET! 🔥") 
@@ -361,6 +526,10 @@ function reset() {
     reviveUsed = false;
     reviveMessage = '';
     reviveMessageTimer = 0;
+    swordCooldown = 0;
+    swordBuffActive = false;
+    swordBuffRemaining = 0;
+    activeSwordBuff = null;
     isWaitingToStart = true; 
     lvl = 0; 
     projs = []; 
@@ -374,6 +543,7 @@ function reset() {
     updateMaxHp();
     updateUI();
     updateBtnUI();
+    renderSwordUI();
 }
 
 function openBadgeViewer() {
@@ -416,7 +586,7 @@ function checkExistingProgress() {
         renderInventoryUI();
     }
     
-    const bossDrops = [...ownedShields, ...ownedHelmets];
+    const bossDrops = [...ownedShields, ...ownedHelmets, ...ownedSwords];
     const baseDrops = bossDrops.filter(item => 
         !['default', 'recruit', 'novice', 'advanced', 'hardmode', 'relentless'].includes(item)
     );
@@ -528,6 +698,12 @@ window.addEventListener('keydown', (e) => {
             }
         }
     }
+    if (e.code === 'KeyF') {
+        e.preventDefault();
+        if (!over && !isWaitingToStart && document.getElementById('item-modal').classList.contains('hidden') && document.getElementById('badge-modal').classList.contains('hidden')) {
+            useSwordAbility();
+        }
+    }
     if (e.code === 'KeyR' && over) reset();
 });
 
@@ -537,12 +713,32 @@ function update() {
     if (P.tm > 0) { P.tm--; if (P.tm === 0) P.st = 'idle'; }
     if (P.tm === 0 && P.st === 'success') P.st = 'idle';
     
+    // Update sword cooldown and buff
+    if (swordCooldown > 0) {
+        swordCooldown--;
+        if (swordCooldown === 0) {
+            renderSwordUI();
+        }
+    }
+    
+    if (swordBuffActive) {
+        swordBuffRemaining--;
+        if (swordBuffRemaining <= 0) {
+            swordBuffActive = false;
+            activeSwordBuff = null;
+            // No expiration message - just remove the glow
+            renderSwordUI();
+        } else {
+            renderSwordUI();
+        }
+    }
+    
     // Update revive message timer
     if (reviveMessageTimer > 0) {
         reviveMessageTimer--;
         if (reviveMessageTimer === 0) {
             reviveMessage = '';
-            updateMaxHp(); // Refresh HP display to remove message
+            updateMaxHp();
         }
     }
     
@@ -634,7 +830,7 @@ function end(w) {
         if (cleared.length >= maxL) unlockBadge('champion');
         checkLootDrops();
         
-        const bossDrops = [...ownedShields, ...ownedHelmets];
+        const bossDrops = [...ownedShields, ...ownedHelmets, ...ownedSwords];
         const baseDrops = bossDrops.filter(item => 
             !['default', 'recruit', 'novice', 'advanced', 'hardmode', 'relentless'].includes(item)
         );
@@ -707,6 +903,77 @@ function draw() {
     ctx.beginPath();
     ctx.arc(P.x - 5, P.y - 22, 6, 0, Math.PI * 2);
     ctx.fill();
+    
+    // Draw angled rapier sword on player if equipped
+    if (activeSword) {
+        const swordColor = swordCooldown > 0 ? '#666666' : (swordBuffActive ? '#00ffcc' : '#c0c0c0');
+        ctx.save();
+        ctx.translate(P.x + 12, P.y - 8);
+        ctx.rotate(-0.4); // Angled like a rapier
+        ctx.shadowBlur = swordBuffActive ? 15 : 3;
+        ctx.shadowColor = swordBuffActive ? '#00ffcc' : '#ffffff';
+        
+        // Glow outline effect during buff
+        if (swordBuffActive) {
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = '#00ffcc';
+            // Draw extra glow layers
+            for (let i = 0; i < 3; i++) {
+                ctx.globalAlpha = 0.3 - i * 0.1;
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(28, -2);
+                ctx.lineTo(28, 2);
+                ctx.closePath();
+                ctx.fillStyle = '#00ffcc';
+                ctx.fill();
+                
+                ctx.beginPath();
+                ctx.moveTo(28, -2);
+                ctx.lineTo(35, 0);
+                ctx.lineTo(28, 2);
+                ctx.closePath();
+                ctx.fillStyle = '#00ffcc';
+                ctx.fill();
+            }
+            ctx.globalAlpha = 1;
+        }
+        
+        // Rapier blade (long thin triangle)
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(28, -2);
+        ctx.lineTo(28, 2);
+        ctx.closePath();
+        ctx.fillStyle = swordColor;
+        ctx.fill();
+        
+        // Blade tip (sharp point)
+        ctx.beginPath();
+        ctx.moveTo(28, -2);
+        ctx.lineTo(35, 0);
+        ctx.lineTo(28, 2);
+        ctx.closePath();
+        ctx.fillStyle = swordBuffActive ? '#00ffcc' : '#e0e0e0';
+        ctx.fill();
+        
+        // Crossguard
+        ctx.fillStyle = swordBuffActive ? '#ffd700' : '#d4af37';
+        ctx.fillRect(-2, -8, 6, 16);
+        
+        // Grip
+        ctx.fillStyle = '#8B4513';
+        ctx.fillRect(-6, -3, 8, 6);
+        
+        // Pommel
+        ctx.beginPath();
+        ctx.arc(-8, 0, 4, 0, Math.PI * 2);
+        ctx.fillStyle = swordBuffActive ? '#ffd700' : '#d4af37';
+        ctx.fill();
+        
+        ctx.restore();
+    }
+    
     ctx.restore();
     
     const stats = getActiveStats();

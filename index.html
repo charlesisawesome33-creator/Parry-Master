@@ -20,7 +20,7 @@
             <div id="score">Combo: 0 | Parries: 0</div>
         </div>
         <canvas id="gameCanvas" width="800" height="400"></canvas>
-        <div id="instructions">Select an opponent below and press <strong>SPACEBAR</strong> to start!</div>
+        <div id="instructions">Select an opponent below. Press <strong>SPACEBAR</strong> to parry. Press <strong>F</strong> to use sword ability.</div>
         
         <!-- ROUND STATUS OVERLAY MODAL -->
         <div id="game-over-screen" class="hidden">
@@ -63,6 +63,21 @@
         <div class="helmet-slot locked" id="helmet-archmage" onclick="clickHelmet('archmage')">💠 Star-Cap</div>
         <div class="helmet-slot unlocked" id="helmet-hardmode" onclick="clickHelmet('hardmode')">💀 Hard Mode</div>
         <div class="helmet-slot locked" id="helmet-relentless" onclick="clickHelmet('relentless')">🔥 Relentless</div>
+    </div>
+    
+    <!-- SWORD RACK -->
+    <div id="sword-case">
+        <div class="sword-slot locked" id="sword-brute" onclick="clickSword('brute')">🔴 Brute Cleaver</div>
+        <div class="sword-slot locked" id="sword-twin" onclick="clickSword('twin')">🟣 Twin Fangs</div>
+        <div class="sword-slot locked" id="sword-triad" onclick="clickSword('triad')">🔵 Triad Edge</div>
+        <div class="sword-slot locked" id="sword-chaos" onclick="clickSword('chaos')">🟡 Chaos Saber</div>
+        <div class="sword-slot locked" id="sword-archmage" onclick="clickSword('archmage')">💠 Archmage Blade</div>
+    </div>
+    
+    <!-- ACTIVE SWORD INDICATOR -->
+    <div id="active-sword-indicator">
+        <span id="active-sword">⚔️ No Sword Equipped</span>
+        <span id="sword-cooldown-indicator"></span>
     </div>
     
     <!-- FIGHT LEVEL SELECTION CONSOLE -->
