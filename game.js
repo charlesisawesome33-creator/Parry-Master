@@ -11,11 +11,37 @@ let reviveMessageTimer = 0;
 // Sword system variables
 let ownedSwords = JSON.parse(localStorage.getItem('parry_swords')) || ['none'];
 let swordCooldown = 0;
-let swordCooldownMax = 360; // 6 seconds at 60fps
-let swordBuffDuration = 180; // 3 seconds at 60fps
+let swordCooldownMax = 360;
+let swordBuffDuration = 180;
 let swordBuffActive = false;
 let swordBuffRemaining = 0;
 let activeSwordBuff = null;
+
+// Level & Skill System
+let playerLevel = JSON.parse(localStorage.getItem('parry_level')) || 1;
+let playerXP = JSON.parse(localStorage.getItem('parry_xp')) || 0;
+let skillPoints = JSON.parse(localStorage.getItem('parry_skill_points')) || 0;
+
+// Skill Tree Data - Clean default values
+let skillTree = JSON.parse(localStorage.getItem('parry_skill_tree')) || {
+    // Offense
+    sharpenedBlade: 0,
+    doubleStrike: 0,
+    criticalParry: 0,
+    executioner: 0,
+    masterReflexes: 0,
+    // Defense
+    toughSkin: 0,
+    quickRecovery: 0,
+    parryHeal: 0,
+    ironWill: 0,
+    reflectiveArmor: 0,
+    // Utility
+    luckyFinder: 0,
+    fastLearner: 0,
+    treasureHunter: 0,
+    xpBooster: 0
+};
 
 const S_OFF = 30, maxL = 5, P = {x: 150, y: 250, st: 'idle', tm: 0}, B = {x: 650, y: 230, w: 50, h: 80}, P_WIN = 25;
 
@@ -25,19 +51,17 @@ let badges = JSON.parse(localStorage.getItem('parry_badges')) || [];
 let ownedShields = JSON.parse(localStorage.getItem('parry_shields')) || ['default'];
 let ownedHelmets = JSON.parse(localStorage.getItem('parry_helmets')) || ['recruit'];
 
-// Player color
 const PLAYER_COLOR = '#66fcf1';
 const PLAYER_GLOW = '#88ffff';
 
 const L_DATA = {
-    1: {hp: 100, spd: 5, col: '#ff4d4d', glow: '#ff8888', t: "ST1: BRUTE", dropShield: 'brute', dropHelmet: 'brute', dropSword: 'brute', startDelay: 45},
-    2: {hp: 120, spd: 6, col: '#bf55ec', glow: '#d98eff', t: "ST2: TWIN", dropShield: 'chrono', dropHelmet: 'twin', dropSword: 'twin', startDelay: 50},
-    3: {hp: 130, spd: 6.5, col: '#3498db', glow: '#6ec4ff', t: "ST3: TRIAD", dropShield: 'resonance', dropHelmet: 'triad', dropSword: 'triad', startDelay: 55},
-    4: {hp: 150, spd: 7, col: '#f1c40f', glow: '#ffe066', t: "ST4: CHAOS", dropShield: 'chaos', dropHelmet: 'chaos', dropSword: 'chaos', startDelay: 60},
-    5: {hp: 200, spd: 8, col: '#e74c3c', glow: '#ff7777', t: "FINAL STAGE: ARCHMAGE", dropShield: 'mirror', dropHelmet: 'archmage', dropSword: 'archmage', startDelay: 70}
+    1: {hp: 100, spd: 5, col: '#ff4d4d', glow: '#ff8888', t: "ST1: BRUTE", dropShield: 'brute', dropHelmet: 'brute', dropSword: 'brute', startDelay: 45, baseChance: 0.20, xp: 10},
+    2: {hp: 120, spd: 6, col: '#bf55ec', glow: '#d98eff', t: "ST2: TWIN", dropShield: 'chrono', dropHelmet: 'twin', dropSword: 'twin', startDelay: 50, baseChance: 0.15, xp: 20},
+    3: {hp: 130, spd: 6.5, col: '#3498db', glow: '#6ec4ff', t: "ST3: TRIAD", dropShield: 'resonance', dropHelmet: 'triad', dropSword: 'triad', startDelay: 55, baseChance: 0.10, xp: 30},
+    4: {hp: 150, spd: 7, col: '#f1c40f', glow: '#ffe066', t: "ST4: CHAOS", dropShield: 'chaos', dropHelmet: 'chaos', dropSword: 'chaos', startDelay: 60, baseChance: 0.05, xp: 40},
+    5: {hp: 200, spd: 8, col: '#e74c3c', glow: '#ff7777', t: "FINAL STAGE: ARCHMAGE", dropShield: 'mirror', dropHelmet: 'archmage', dropSword: 'archmage', startDelay: 70, baseChance: 0.02, xp: 50}
 };
 
-// Sword data
 const SWORD_DATA = {
     none: { name: "No Sword", ico: "⚔️", boss: 0, desc: "Unequip your sword. No ability.", cooldown: "" },
     brute: { name: "Brute Cleaver", ico: "🔴", boss: 1, buffParryWindow: 0.25, desc: "For 3 seconds: +25% parry window", cooldown: "6 second cooldown" },
@@ -47,7 +71,6 @@ const SWORD_DATA = {
     archmage: { name: "Archmage Blade", ico: "💠", boss: 5, buffExtraReplica: 0.35, buffExtraHeal: 0.20, desc: "For 3 seconds: 35% extra replica + 20% heal on parry", cooldown: "6 second cooldown" }
 };
 
-// Shield stats
 const SHIELD_STATS = {
     default: { name: "Default Core", ico: "🔘", desc: "Standard shield. Parry sends fireball back.", parryWindow: 0, slow: 0, reflectOnHit: 0, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 0 },
     brute: { name: "Brute's Bulwark", ico: "🔴", desc: "+25% parry window.", parryWindow: 0.25, slow: 0, reflectOnHit: 0, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 0 },
@@ -59,7 +82,6 @@ const SHIELD_STATS = {
     advanced: { name: "Advanced Collector Core", ico: "💎", desc: "3x drop chance from bosses. No duplicate drops.", parryWindow: 0, slow: 0, reflectOnHit: 0, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 0 }
 };
 
-// Helmet stats
 const HELMET_STATS = {
     recruit: { name: "Recruit's Sallet", ico: "🪖", desc: "+1 max HP.", parryWindow: 0, slow: 0, reflectOnHit: 0, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 1 },
     brute: { name: "Brute's Horned Helm", ico: "🔴", desc: "+40% parry window.", parryWindow: 0.40, slow: 0, reflectOnHit: 0, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 0 },
@@ -71,7 +93,6 @@ const HELMET_STATS = {
     relentless: { name: "Relentless Helmet", ico: "🔥", desc: "Revives you to max HP upon death (once per run).", parryWindow: 0, slow: 0, reflectOnHit: 0, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 0 }
 };
 
-// Badge definitions - UPDATED for 5 drops and 15 drops
 const BADGE_DATA = {
     flawless: { name: "🛡️ UNTOUCHABLE", desc: "Beat any boss without taking damage", reward: "No reward (achievement only)" },
     combo: { name: "🔥 COMBO KING", desc: "Get a 5x Parry Combo", reward: "No reward (achievement only)" },
@@ -80,29 +101,378 @@ const BADGE_DATA = {
     perfectionist: { name: "🎯 PERFECTIONIST", desc: "Get 5 PERFECT parries in one fight", reward: "PERFECT parries deal 15 damage (instead of 10)" },
     novice: { name: "📦 NOVICE COLLECTOR", desc: "Collect any 5 boss drops (shields, helmets, or swords from ST1-ST5)", reward: "Unlocks Novice Collector Core 📦 (2x drop chance from bosses)" },
     advanced: { name: "💎 ADVANCED COLLECTOR", desc: "Collect all 15 boss drops (5 shields + 5 helmets + 5 swords from ST1-ST5)", reward: "Unlocks Advanced Collector Core 💎 (3x drop chance from bosses)" },
-    relentless: { name: "🔥 RELENTLESS", desc: "The badge for the try-hards.", reward: "Unlocks Relentless Helmet (revives to max HP upon death, once per run)" },
+    relentless: { name: "🔥 RELENTLESS", desc: "Defeat the ARCHMAGE (ST5) while wearing the Hard Mode Helm", reward: "Unlocks Relentless Helmet (revives to max HP upon death, once per run)" },
     completionist: { name: "🏆 COMPLETIONIST", desc: "Unlock all other badges", reward: "Unobtainable for now" }
 };
+
+// Skill definitions
+const SKILLS = {
+    offense: [
+        { id: 'sharpenedBlade', name: 'Sharpened\nBlade', icon: '🗡️', maxLevel: 5, desc: 'Each level adds +1 damage to reflected fireballs' },
+        { id: 'doubleStrike', name: 'Double\nStrike', icon: '⚡', maxLevel: 3, desc: 'Each level adds +5% chance to spawn an extra replica' },
+        { id: 'criticalParry', name: 'Critical\nParry', icon: '💥', maxLevel: 3, desc: 'Each level adds +10% critical damage' },
+        { id: 'executioner', name: 'Executioner', icon: '🔪', maxLevel: 1, desc: 'Instantly kill boss when below 10% HP' },
+        { id: 'masterReflexes', name: 'Master\nReflexes', icon: '👁️', maxLevel: 3, desc: 'Each level adds +5% parry window' }
+    ],
+    defense: [
+        { id: 'toughSkin', name: 'Tough\nSkin', icon: '🛡️', maxLevel: 1, desc: '+2 max HP' },
+        { id: 'quickRecovery', name: 'Quick\nRecovery', icon: '💚', maxLevel: 3, desc: 'Each level reduces damage taken by 5%' },
+        { id: 'parryHeal', name: 'Parry\nHeal', icon: '❤️', maxLevel: 3, desc: 'Each level adds +2% heal chance on parry' },
+        { id: 'ironWill', name: 'Iron\nWill', icon: '💪', maxLevel: 3, desc: 'Each level adds +3% chance to ignore damage' },
+        { id: 'reflectiveArmor', name: 'Reflective\nArmor', icon: '🔄', maxLevel: 3, desc: 'Each level adds +3% reflect on hit chance' }
+    ],
+    utility: [
+        { id: 'luckyFinder', name: 'Lucky\nFinder', icon: '🍀', maxLevel: 3, desc: 'Each level adds +2% drop chance' },
+        { id: 'fastLearner', name: 'Fast\nLearner', icon: '📚', maxLevel: 3, desc: 'Each level adds +5% XP gain' },
+        { id: 'treasureHunter', name: 'Treasure\nHunter', icon: '⭐', maxLevel: 3, desc: 'Each level adds +5% double drop chance' },
+        { id: 'xpBooster', name: 'XP\nBooster', icon: '💰', maxLevel: 3, desc: 'Each level adds +10 XP per boss kill' }
+    ]
+};
+
+function getXPNeeded() {
+    return 100 + ((playerLevel - 1) * 50);
+}
+
+function addXP(amount) {
+    let xpGain = amount;
+    let fastLearnerBonus = 1 + (skillTree.fastLearner * 0.05);
+    xpGain = Math.floor(xpGain * fastLearnerBonus);
+    
+    playerXP += xpGain;
+    let xpNeeded = getXPNeeded();
+    let leveledUp = false;
+    
+    while (playerXP >= xpNeeded) {
+        playerXP -= xpNeeded;
+        playerLevel++;
+        skillPoints++;
+        xpNeeded = getXPNeeded();
+        leveledUp = true;
+        document.getElementById('drop-alert').innerHTML = `⬆️ LEVEL UP! Now Level ${playerLevel}! +1 Skill Point! ⬆️`;
+        setTimeout(() => {
+            if (document.getElementById('drop-alert').innerHTML.includes("LEVEL UP")) 
+                document.getElementById('drop-alert').innerHTML = "";
+        }, 3000);
+    }
+    
+    localStorage.setItem('parry_level', playerLevel);
+    localStorage.setItem('parry_xp', playerXP);
+    localStorage.setItem('parry_skill_points', skillPoints);
+    
+    updateLevelUI();
+    updateSkillTreeUI();
+    return leveledUp;
+}
+
+function updateLevelUI() {
+    document.getElementById('player-level').innerText = playerLevel;
+    document.getElementById('player-xp').innerText = playerXP;
+    const xpNeeded = getXPNeeded();
+    document.getElementById('player-xp-needed').innerText = xpNeeded;
+    const percent = (playerXP / xpNeeded) * 100;
+    document.getElementById('xp-progress-fill').style.width = `${percent}%`;
+    document.getElementById('skill-points-display').innerText = skillPoints;
+}
+
+function getSkillEffect(skillId) {
+    const level = skillTree[skillId];
+    switch(skillId) {
+        case 'sharpenedBlade': return level;
+        case 'doubleStrike': return level * 5;
+        case 'criticalParry': return level * 10;
+        case 'masterReflexes': return level * 5;
+        case 'quickRecovery': return level * 5;
+        case 'parryHeal': return level * 2;
+        case 'ironWill': return level * 3;
+        case 'reflectiveArmor': return level * 3;
+        case 'luckyFinder': return level * 2;
+        case 'fastLearner': return level * 5;
+        case 'treasureHunter': return level * 5;
+        case 'xpBooster': return level * 10;
+        case 'toughSkin': return level === 1 ? 2 : 0;
+        case 'executioner': return level;
+        default: return 0;
+    }
+}
+
+function canUpgradeSkill(skillId, branch) {
+    const skill = branch.find(s => s.id === skillId);
+    if (!skill) return false;
+    if (skillTree[skillId] >= skill.maxLevel) return false;
+    if (skillPoints <= 0) return false;
+    
+    const index = branch.findIndex(s => s.id === skillId);
+    if (index === 0) return true;
+    const prevSkill = branch[index - 1];
+    if (skillTree[prevSkill.id] === 0) return false;
+    
+    return true;
+}
+
+function upgradeSkill(skillId) {
+    let branch = null;
+    for (let b of Object.values(SKILLS)) {
+        if (b.find(s => s.id === skillId)) {
+            branch = b;
+            break;
+        }
+    }
+    if (!branch) return false;
+    if (!canUpgradeSkill(skillId, branch)) return false;
+    
+    skillTree[skillId]++;
+    skillPoints--;
+    
+    localStorage.setItem('parry_skill_tree', JSON.stringify(skillTree));
+    localStorage.setItem('parry_skill_points', skillPoints);
+    
+    updateSkillTreeUI();
+    updateLevelUI();
+    return true;
+}
+
+function getSkillStatus(skillId, branch) {
+    const skill = branch.find(s => s.id === skillId);
+    if (!skill) return 'locked';
+    if (skillTree[skillId] >= skill.maxLevel) return 'unlocked';
+    if (canUpgradeSkill(skillId, branch)) return 'available';
+    return 'locked';
+}
+
+function updateSkillTreeUI() {
+    // Offense branch
+    const offenseContainer = document.getElementById('offense-tree');
+    if (offenseContainer) {
+        offenseContainer.innerHTML = '';
+        SKILLS.offense.forEach((skill, idx) => {
+            const level = skillTree[skill.id];
+            const status = getSkillStatus(skill.id, SKILLS.offense);
+            const node = document.createElement('div');
+            node.className = `skill-node ${status}`;
+            node.innerHTML = `
+                <div class="skill-icon">${skill.icon}</div>
+                <div class="skill-name">${skill.name}</div>
+                <div class="skill-level">${level}/${skill.maxLevel}</div>
+                <div class="skill-cost">${status === 'available' ? '⬆️ 1 SP' : (status === 'unlocked' ? 'MAX' : '🔒')}</div>
+            `;
+            if (status !== 'locked') {
+                node.onclick = () => showSkillConfirm(skill.id, SKILLS.offense);
+            }
+            offenseContainer.appendChild(node);
+            if (idx < SKILLS.offense.length - 1) {
+                const connector = document.createElement('div');
+                connector.className = `skill-connector ${status === 'locked' && skillTree[SKILLS.offense[idx+1]?.id] === 0 ? 'locked' : ''}`;
+                offenseContainer.appendChild(connector);
+            }
+        });
+    }
+    
+    // Defense branch
+    const defenseContainer = document.getElementById('defense-tree');
+    if (defenseContainer) {
+        defenseContainer.innerHTML = '';
+        SKILLS.defense.forEach((skill, idx) => {
+            const level = skillTree[skill.id];
+            const status = getSkillStatus(skill.id, SKILLS.defense);
+            const node = document.createElement('div');
+            node.className = `skill-node ${status}`;
+            node.innerHTML = `
+                <div class="skill-icon">${skill.icon}</div>
+                <div class="skill-name">${skill.name}</div>
+                <div class="skill-level">${level}/${skill.maxLevel}</div>
+                <div class="skill-cost">${status === 'available' ? '⬆️ 1 SP' : (status === 'unlocked' ? 'MAX' : '🔒')}</div>
+            `;
+            if (status !== 'locked') {
+                node.onclick = () => showSkillConfirm(skill.id, SKILLS.defense);
+            }
+            defenseContainer.appendChild(node);
+            if (idx < SKILLS.defense.length - 1) {
+                const connector = document.createElement('div');
+                connector.className = `skill-connector ${status === 'locked' && skillTree[SKILLS.defense[idx+1]?.id] === 0 ? 'locked' : ''}`;
+                defenseContainer.appendChild(connector);
+            }
+        });
+    }
+    
+    // Utility branch
+    const utilityContainer = document.getElementById('utility-tree');
+    if (utilityContainer) {
+        utilityContainer.innerHTML = '';
+        SKILLS.utility.forEach((skill, idx) => {
+            const level = skillTree[skill.id];
+            const status = getSkillStatus(skill.id, SKILLS.utility);
+            const node = document.createElement('div');
+            node.className = `skill-node ${status}`;
+            node.innerHTML = `
+                <div class="skill-icon">${skill.icon}</div>
+                <div class="skill-name">${skill.name}</div>
+                <div class="skill-level">${level}/${skill.maxLevel}</div>
+                <div class="skill-cost">${status === 'available' ? '⬆️ 1 SP' : (status === 'unlocked' ? 'MAX' : '🔒')}</div>
+            `;
+            if (status !== 'locked') {
+                node.onclick = () => showSkillConfirm(skill.id, SKILLS.utility);
+            }
+            utilityContainer.appendChild(node);
+            if (idx < SKILLS.utility.length - 1) {
+                const connector = document.createElement('div');
+                connector.className = `skill-connector ${status === 'locked' && skillTree[SKILLS.utility[idx+1]?.id] === 0 ? 'locked' : ''}`;
+                utilityContainer.appendChild(connector);
+            }
+        });
+    }
+}
+
+let pendingSkillId = null;
+let pendingBranch = null;
+
+function showSkillConfirm(skillId, branch) {
+    const skill = branch.find(s => s.id === skillId);
+    if (!skill) return;
+    
+    const currentLevel = skillTree[skillId];
+    const nextLevel = currentLevel + 1;
+    const isMaxed = currentLevel >= skill.maxLevel;
+    
+    if (isMaxed) {
+        document.getElementById('drop-alert').innerHTML = `⚠️ ${skill.name.replace('\n', ' ')} is already max level! ⚠️`;
+        setTimeout(() => {
+            if (document.getElementById('drop-alert').innerHTML.includes("already max level"))
+                document.getElementById('drop-alert').innerHTML = "";
+        }, 2000);
+        return;
+    }
+    
+    if (skillPoints <= 0) {
+        document.getElementById('drop-alert').innerHTML = `⚠️ Not enough Skill Points! Need 1 SP ⚠️`;
+        setTimeout(() => {
+            if (document.getElementById('drop-alert').innerHTML.includes("Not enough Skill Points"))
+                document.getElementById('drop-alert').innerHTML = "";
+        }, 2000);
+        return;
+    }
+    
+    const index = branch.findIndex(s => s.id === skillId);
+    let requirementText = "None (starting skill)";
+    let canUpgrade = true;
+    
+    if (index > 0) {
+        const prevSkill = branch[index - 1];
+        const prevLevel = skillTree[prevSkill.id];
+        if (prevLevel === 0) {
+            canUpgrade = false;
+            requirementText = `${prevSkill.name.replace('\n', ' ')} (required)`;
+        } else {
+            requirementText = `${prevSkill.name.replace('\n', ' ')} Lv.${prevLevel}`;
+        }
+    }
+    
+    if (!canUpgrade) {
+        document.getElementById('drop-alert').innerHTML = `⚠️ Requires ${requirementText} first! ⚠️`;
+        setTimeout(() => {
+            if (document.getElementById('drop-alert').innerHTML.includes("Requires"))
+                document.getElementById('drop-alert').innerHTML = "";
+        }, 2000);
+        return;
+    }
+    
+    pendingSkillId = skillId;
+    pendingBranch = branch;
+    
+    let effectText = skill.desc;
+    if (skill.maxLevel > 1) {
+        effectText = `${skill.desc}\nCurrent: +${getSkillEffect(skillId)} → Next: +${getSkillEffect(skillId) + (skill.id === 'sharpenedBlade' ? 1 : skill.id === 'doubleStrike' ? 5 : skill.id === 'criticalParry' ? 10 : skill.id === 'masterReflexes' ? 5 : skill.id === 'quickRecovery' ? 5 : skill.id === 'parryHeal' ? 2 : skill.id === 'ironWill' ? 3 : skill.id === 'reflectiveArmor' ? 3 : skill.id === 'luckyFinder' ? 2 : skill.id === 'fastLearner' ? 5 : skill.id === 'treasureHunter' ? 5 : skill.id === 'xpBooster' ? 10 : 0)}`;
+    }
+    
+    document.getElementById('confirm-skill-icon').innerText = skill.icon;
+    document.getElementById('confirm-skill-name').innerText = skill.name.replace('\n', ' ');
+    document.getElementById('confirm-skill-current').innerText = `${currentLevel}/${skill.maxLevel}`;
+    document.getElementById('confirm-skill-next').innerText = `${nextLevel}/${skill.maxLevel}`;
+    document.getElementById('confirm-skill-effect').innerHTML = effectText.replace(/\n/g, '<br>');
+    document.getElementById('confirm-skill-requirement').innerHTML = requirementText;
+    
+    document.getElementById('skill-confirm-modal').classList.remove('hidden');
+}
+
+function confirmUpgrade() {
+    if (!pendingSkillId || !pendingBranch) return;
+    
+    const success = upgradeSkill(pendingSkillId);
+    if (success) {
+        const skill = pendingBranch.find(s => s.id === pendingSkillId);
+        document.getElementById('drop-alert').innerHTML = `✅ ${skill.name.replace('\n', ' ')} upgraded! ✅`;
+        setTimeout(() => {
+            if (document.getElementById('drop-alert').innerHTML.includes("upgraded"))
+                document.getElementById('drop-alert').innerHTML = "";
+        }, 2000);
+    }
+    
+    pendingSkillId = null;
+    pendingBranch = null;
+    document.getElementById('skill-confirm-modal').classList.add('hidden');
+    updateSkillTreeUI();
+    updateLevelUI();
+}
+
+function cancelUpgrade() {
+    pendingSkillId = null;
+    pendingBranch = null;
+    document.getElementById('skill-confirm-modal').classList.add('hidden');
+}
+
+function resetAllSkills() {
+    if (confirm("⚠️ WARNING: This will refund ALL your skill points. You can respend them on different skills. Your level and XP will NOT be affected. Are you sure?")) {
+        // Calculate total skill points spent
+        let totalSpent = 0;
+        for (let skill in skillTree) {
+            totalSpent += skillTree[skill];
+        }
+        
+        // Add refunded points to current skill points
+        skillPoints += totalSpent;
+        
+        // Reset all skills to 0
+        skillTree = {
+            sharpenedBlade: 0, doubleStrike: 0, criticalParry: 0, executioner: 0, masterReflexes: 0,
+            toughSkin: 0, quickRecovery: 0, parryHeal: 0, ironWill: 0, reflectiveArmor: 0,
+            luckyFinder: 0, fastLearner: 0, treasureHunter: 0, xpBooster: 0
+        };
+        
+        // Save to localStorage
+        localStorage.setItem('parry_skill_tree', JSON.stringify(skillTree));
+        localStorage.setItem('parry_skill_points', skillPoints);
+        
+        // Update UI
+        updateLevelUI();
+        updateSkillTreeUI();
+        
+        document.getElementById('drop-alert').innerHTML = "🔄 Skills reset! You can now respend your skill points. 🔄";
+        setTimeout(() => {
+            if (document.getElementById('drop-alert').innerHTML.includes("reset"))
+                document.getElementById('drop-alert').innerHTML = "";
+        }, 3000);
+    }
+}
 
 function getMaxHp() {
     const shield = SHIELD_STATS[activeShield] || SHIELD_STATS.default;
     const helmet = HELMET_STATS[activeHelmet] || HELMET_STATS.recruit;
     let bonus = shield.maxHpBonus + helmet.maxHpBonus;
-    return Math.max(1, 3 + bonus);
+    let baseMax = Math.max(1, 3 + bonus);
+    const toughSkinBonus = getSkillEffect('toughSkin');
+    return baseMax + toughSkinBonus;
 }
 
-function getActiveStats() {
+function getActiveStatsWithSkills() {
     const shield = SHIELD_STATS[activeShield] || SHIELD_STATS.default;
     const helmet = HELMET_STATS[activeHelmet] || HELMET_STATS.recruit;
     
-    let parryWindow = shield.parryWindow + helmet.parryWindow;
+    let parryWindow = shield.parryWindow + helmet.parryWindow + (getSkillEffect('masterReflexes') / 100);
     let slow = shield.slow + helmet.slow;
-    let reflectOnHit = shield.reflectOnHit + helmet.reflectOnHit;
-    let healParry = shield.healParry + helmet.healParry;
-    let extraReplica = shield.extraReplica + helmet.extraReplica;
+    let reflectOnHit = shield.reflectOnHit + helmet.reflectOnHit + (getSkillEffect('reflectiveArmor') / 100);
+    let healParry = shield.healParry + helmet.healParry + (getSkillEffect('parryHeal') / 100);
+    let extraReplica = shield.extraReplica + helmet.extraReplica + (getSkillEffect('doubleStrike') / 100);
     let extraHeal = shield.extraHeal + helmet.extraHeal;
     
-    // Apply sword buff if active
     if (swordBuffActive && activeSwordBuff) {
         if (activeSwordBuff.parryWindow) parryWindow += activeSwordBuff.parryWindow;
         if (activeSwordBuff.slow) slow += activeSwordBuff.slow;
@@ -113,6 +483,16 @@ function getActiveStats() {
     }
     
     return { parryWindow, slow, reflectOnHit, healParry, extraReplica, extraHeal };
+}
+
+function getDamageWithSkills(baseDamage) {
+    let damage = baseDamage + getSkillEffect('sharpenedBlade');
+    const critChance = 0.15;
+    const critDamageBonus = getSkillEffect('criticalParry') / 100;
+    if (Math.random() < critChance) {
+        damage = Math.floor(damage * (1.5 + critDamageBonus));
+    }
+    return damage;
 }
 
 function getDropMultiplier() {
@@ -134,7 +514,7 @@ function updateMaxHp() {
 }
 
 function addProjectile(speed, type = 'in', x = B.x, customDamage = 10, customColor = null) {
-    const stats = getActiveStats();
+    const stats = getActiveStatsWithSkills();
     let finalSpeed = speed;
     if (type === 'in' && stats.slow > 0) finalSpeed = speed * (1 - stats.slow);
     let color = customColor;
@@ -158,6 +538,71 @@ function spawn() {
             accumulatedDelay += Math.floor(Math.random() * 30) + 15; 
             sTimers.push(accumulatedDelay);
         }
+    }
+}
+
+function isBossComplete(bossLevel) {
+    const boss = L_DATA[bossLevel];
+    const hasShield = ownedShields.includes(boss.dropShield);
+    const hasHelmet = ownedHelmets.includes(boss.dropHelmet);
+    const hasSword = ownedSwords.includes(boss.dropSword);
+    return hasShield && hasHelmet && hasSword;
+}
+
+function checkLootDrops() {
+    const boss = L_DATA[lvl];
+    let drops = [];
+    let dropMultiplier = getDropMultiplier();
+    let luckyBonus = getSkillEffect('luckyFinder') / 100;
+    let baseChance = boss.baseChance * dropMultiplier + luckyBonus;
+    baseChance = Math.min(0.9, baseChance);
+    
+    if (boss.dropShield && !ownedShields.includes(boss.dropShield)) {
+        if (Math.random() < baseChance) {
+            ownedShields.push(boss.dropShield);
+            drops.push(`🛡️ ${SHIELD_STATS[boss.dropShield].name}`);
+        }
+    }
+    if (boss.dropHelmet && !ownedHelmets.includes(boss.dropHelmet)) {
+        if (Math.random() < baseChance) {
+            ownedHelmets.push(boss.dropHelmet);
+            drops.push(`🪖 ${HELMET_STATS[boss.dropHelmet].name}`);
+        }
+    }
+    if (boss.dropSword && !ownedSwords.includes(boss.dropSword)) {
+        if (Math.random() < baseChance) {
+            ownedSwords.push(boss.dropSword);
+            drops.push(`⚔️ ${SWORD_DATA[boss.dropSword].name}`);
+        }
+    }
+    
+    let treasureBonus = getSkillEffect('treasureHunter') / 100;
+    if (drops.length > 0 && treasureBonus > 0 && drops.length < 3) {
+        if (Math.random() < treasureBonus) {
+            let availableDrops = [];
+            if (!ownedShields.includes(boss.dropShield)) availableDrops.push(`🛡️ ${SHIELD_STATS[boss.dropShield].name}`);
+            if (!ownedHelmets.includes(boss.dropHelmet)) availableDrops.push(`🪖 ${HELMET_STATS[boss.dropHelmet].name}`);
+            if (!ownedSwords.includes(boss.dropSword)) availableDrops.push(`⚔️ ${SWORD_DATA[boss.dropSword].name}`);
+            if (availableDrops.length > 0) {
+                const extraDrop = availableDrops[Math.floor(Math.random() * availableDrops.length)];
+                drops.push(`⭐ ${extraDrop} (DOUBLE!)`);
+            }
+        }
+    }
+    
+    if (drops.length === 3) {
+        document.getElementById('drop-alert').innerHTML = `🏆⭐ EPIC DROP: ${drops[0]} + ${drops[1]} + ${drops[2]}! ⭐🏆`;
+    } else if (drops.length === 2) {
+        document.getElementById('drop-alert').innerHTML = `🏆 DOUBLE DROP: ${drops[0]} + ${drops[1]}! 🏆`;
+    } else if (drops.length === 1) {
+        document.getElementById('drop-alert').innerHTML = `🏆 DROP: ${drops[0]}! 🏆`;
+    }
+    
+    if (drops.length > 0) {
+        localStorage.setItem('parry_shields', JSON.stringify(ownedShields));
+        localStorage.setItem('parry_helmets', JSON.stringify(ownedHelmets));
+        localStorage.setItem('parry_swords', JSON.stringify(ownedSwords));
+        renderInventoryUI();
     }
 }
 
@@ -215,6 +660,15 @@ function updateBtnUI() {
 let pendingType = null, pendingId = null;
 
 function clickSkin(id) {
+    if (!isWaitingToStart && !over) {
+        document.getElementById('drop-alert').innerHTML = "⛔ Cannot change equipment during a fight! ⛔";
+        setTimeout(() => { 
+            if (document.getElementById('drop-alert').innerHTML === "⛔ Cannot change equipment during a fight! ⛔") 
+                document.getElementById('drop-alert').innerHTML = ""; 
+        }, 1500);
+        return;
+    }
+    
     if (ownedShields.includes(id)) {
         pendingType = 'shield';
         pendingId = id;
@@ -228,6 +682,15 @@ function clickSkin(id) {
 }
 
 function clickHelmet(id) {
+    if (!isWaitingToStart && !over) {
+        document.getElementById('drop-alert').innerHTML = "⛔ Cannot change equipment during a fight! ⛔";
+        setTimeout(() => { 
+            if (document.getElementById('drop-alert').innerHTML === "⛔ Cannot change equipment during a fight! ⛔") 
+                document.getElementById('drop-alert').innerHTML = ""; 
+        }, 1500);
+        return;
+    }
+    
     if (ownedHelmets.includes(id)) {
         pendingType = 'helmet';
         pendingId = id;
@@ -241,8 +704,16 @@ function clickHelmet(id) {
 }
 
 function clickSword(id) {
+    if (!isWaitingToStart && !over) {
+        document.getElementById('drop-alert').innerHTML = "⛔ Cannot change equipment during a fight! ⛔";
+        setTimeout(() => { 
+            if (document.getElementById('drop-alert').innerHTML === "⛔ Cannot change equipment during a fight! ⛔") 
+                document.getElementById('drop-alert').innerHTML = ""; 
+        }, 1500);
+        return;
+    }
+    
     if (id === 'none') {
-        // No Sword is always equippable
         if (activeSword === 'none') {
             activeSword = null;
         } else {
@@ -272,6 +743,16 @@ function closeModal() {
 }
 
 function confirmEquip() {
+    if (!isWaitingToStart && !over) {
+        document.getElementById('drop-alert').innerHTML = "⛔ Cannot change equipment during a fight! ⛔";
+        setTimeout(() => { 
+            if (document.getElementById('drop-alert').innerHTML === "⛔ Cannot change equipment during a fight! ⛔") 
+                document.getElementById('drop-alert').innerHTML = ""; 
+        }, 1500);
+        closeModal();
+        return;
+    }
+    
     if (pendingType === 'shield') {
         activeShield = pendingId;
     } else if (pendingType === 'helmet') {
@@ -307,7 +788,6 @@ function useSwordAbility() {
         return false;
     }
     
-    // Activate sword buff
     const sword = SWORD_DATA[activeSword];
     activeSwordBuff = {};
     if (sword.buffParryWindow) activeSwordBuff.parryWindow = sword.buffParryWindow;
@@ -321,7 +801,6 @@ function useSwordAbility() {
     swordBuffRemaining = swordBuffDuration;
     swordCooldown = swordCooldownMax;
     
-    // Show activation message only
     let buffText = `⚔️ ${sword.name} activated for 3 seconds! ⚔️`;
     
     document.getElementById('drop-alert').innerHTML = buffText;
@@ -332,49 +811,6 @@ function useSwordAbility() {
     
     renderSwordUI();
     return true;
-}
-
-function checkLootDrops() {
-    const boss = L_DATA[lvl];
-    let msg = '';
-    let drops = [];
-    let baseChance = (lvl === 1 ? 0.2 : lvl === 2 ? 0.15 : lvl === 3 ? 0.10 : lvl === 4 ? 0.05 : 0.02);
-    let dropMultiplier = getDropMultiplier();
-    let finalChance = baseChance * dropMultiplier;
-    
-    if (boss.dropShield && !ownedShields.includes(boss.dropShield)) {
-        if (Math.random() < finalChance) {
-            ownedShields.push(boss.dropShield);
-            drops.push(`🛡️ ${SHIELD_STATS[boss.dropShield].name}`);
-        }
-    }
-    if (boss.dropHelmet && !ownedHelmets.includes(boss.dropHelmet)) {
-        if (Math.random() < finalChance) {
-            ownedHelmets.push(boss.dropHelmet);
-            drops.push(`🪖 ${HELMET_STATS[boss.dropHelmet].name}`);
-        }
-    }
-    if (boss.dropSword && !ownedSwords.includes(boss.dropSword)) {
-        if (Math.random() < finalChance) {
-            ownedSwords.push(boss.dropSword);
-            drops.push(`⚔️ ${SWORD_DATA[boss.dropSword].name}`);
-        }
-    }
-    
-    if (drops.length === 3) {
-        document.getElementById('drop-alert').innerHTML = `🏆⭐ EPIC DROP: ${drops[0]} + ${drops[1]} + ${drops[2]}! ⭐🏆`;
-    } else if (drops.length === 2) {
-        document.getElementById('drop-alert').innerHTML = `🏆 DOUBLE DROP: ${drops[0]} + ${drops[1]}! 🏆`;
-    } else if (drops.length === 1) {
-        document.getElementById('drop-alert').innerHTML = `🏆 DROP: ${drops[0]}! 🏆`;
-    }
-    
-    if (drops.length > 0) {
-        localStorage.setItem('parry_shields', JSON.stringify(ownedShields));
-        localStorage.setItem('parry_helmets', JSON.stringify(ownedHelmets));
-        localStorage.setItem('parry_swords', JSON.stringify(ownedSwords));
-        renderInventoryUI();
-    }
 }
 
 function renderInventoryUI() {
@@ -409,7 +845,6 @@ function renderSwordUI() {
         const el = document.getElementById('sword-' + id);
         if (el) {
             if (id === 'none') {
-                // No Sword is always unlocked
                 if (activeSword === 'none' || (!activeSword && id === 'none')) {
                     el.className = "sword-slot active";
                 } else {
@@ -453,19 +888,26 @@ function renderSwordUI() {
     }
 }
 
+function openSkillModal() {
+    updateSkillTreeUI();
+    updateLevelUI();
+    document.getElementById('skill-modal').classList.remove('hidden');
+}
+
+function closeSkillModal() {
+    document.getElementById('skill-modal').classList.add('hidden');
+}
+
 function checkCollectorBadges() {
-    // Get all non-default, non-recruit, non-collector drops (real boss drops)
     const bossDrops = [...ownedShields, ...ownedHelmets, ...ownedSwords];
     const realDrops = bossDrops.filter(item => 
         !['default', 'recruit', 'novice', 'advanced', 'hardmode', 'relentless', 'none'].includes(item)
     );
     
-    // Novice badge: collect any 5 boss drops (shields, helmets, or swords)
     if (realDrops.length >= 5 && !badges.includes('novice')) {
         unlockBadge('novice');
     }
     
-    // Advanced badge: collect all 15 boss drops (5 shields + 5 helmets + 5 swords)
     const requiredShields = ['brute', 'chrono', 'resonance', 'chaos', 'mirror'];
     const requiredHelmets = ['brute', 'twin', 'triad', 'chaos', 'archmage'];
     const requiredSwords = ['brute', 'twin', 'triad', 'chaos', 'archmage'];
@@ -582,6 +1024,7 @@ function reset() {
     updateUI();
     updateBtnUI();
     renderSwordUI();
+    localStorage.setItem('parry_active_sword', activeSword);
 }
 
 function openBadgeViewer() {
@@ -624,17 +1067,25 @@ function checkExistingProgress() {
         renderInventoryUI();
     }
     
-    // Check collector badges on load
+    const savedSword = localStorage.getItem('parry_active_sword');
+    if (savedSword && savedSword !== 'null' && ownedSwords.includes(savedSword)) {
+        activeSword = savedSword;
+    } else {
+        activeSword = 'none';
+    }
+    
     checkCollectorBadges();
+    updateLevelUI();
+    updateSkillTreeUI();
 }
 
 window.addEventListener('keydown', (e) => {
     if (e.code === 'Space') {
         e.preventDefault();
-        if (!over && document.getElementById('item-modal').classList.contains('hidden') && document.getElementById('badge-modal').classList.contains('hidden')) {
+        if (!over && document.getElementById('item-modal').classList.contains('hidden') && document.getElementById('badge-modal').classList.contains('hidden') && document.getElementById('skill-modal').classList.contains('hidden') && document.getElementById('skill-confirm-modal').classList.contains('hidden')) {
             if (isWaitingToStart) { selectStage(1); return; }
             if (P.st === 'idle') {
-                const stats = getActiveStats();
+                const stats = getActiveStatsWithSkills();
                 P.st = 'parrying'; P.tm = 10;
                 let target = null, minDist = 9999;
                 projs.forEach(p => { if (p.active && p.type === 'in') { let d = p.x - (P.x + S_OFF); if (d > -5 && d < minDist) { minDist = d; target = p; } } });
@@ -673,12 +1124,14 @@ window.addEventListener('keydown', (e) => {
                         if (window.perfectCount >= 5 && !badges.includes('perfectionist')) {
                             unlockBadge('perfectionist');
                         }
+                        // NO XP FROM PERFECT PARRY
                     }
                     
                     let damage = 10;
                     if (isPerfect && badges.includes('perfectionist')) {
                         damage = 15;
                     }
+                    damage = getDamageWithSkills(damage);
                     
                     target.vx = Math.abs(target.vx) * 1.2;
                     target.type = 'reflect';
@@ -689,6 +1142,8 @@ window.addEventListener('keydown', (e) => {
                     setTimeout(() => { if (document.getElementById('drop-alert').innerHTML === "⚡ FIREBALL REFLECTED! ⚡") document.getElementById('drop-alert').innerHTML = ""; }, 300);
                     
                     score++; combo++; shake = 8; P.st = 'success'; P.tm = 0;
+                    // NO XP FROM REGULAR PARRY
+                    
                     if (combo > maxCombo) maxCombo = combo;
                     if (combo >= 5) unlockBadge('combo');
                     if (minDist <= 10) unlockBadge('reflex');
@@ -723,7 +1178,7 @@ window.addEventListener('keydown', (e) => {
     }
     if (e.code === 'KeyF') {
         e.preventDefault();
-        if (!over && !isWaitingToStart && document.getElementById('item-modal').classList.contains('hidden') && document.getElementById('badge-modal').classList.contains('hidden')) {
+        if (!over && !isWaitingToStart && document.getElementById('item-modal').classList.contains('hidden') && document.getElementById('badge-modal').classList.contains('hidden') && document.getElementById('skill-modal').classList.contains('hidden') && document.getElementById('skill-confirm-modal').classList.contains('hidden')) {
             useSwordAbility();
         }
     }
@@ -736,7 +1191,6 @@ function update() {
     if (P.tm > 0) { P.tm--; if (P.tm === 0) P.st = 'idle'; }
     if (P.tm === 0 && P.st === 'success') P.st = 'idle';
     
-    // Update sword cooldown and buff
     if (swordCooldown > 0) {
         swordCooldown--;
         if (swordCooldown === 0) {
@@ -755,7 +1209,6 @@ function update() {
         }
     }
     
-    // Update revive message timer
     if (reviveMessageTimer > 0) {
         reviveMessageTimer--;
         if (reviveMessageTimer === 0) {
@@ -786,8 +1239,9 @@ function update() {
         p.x += p.vx;
         
         if (p.type === 'in' && p.x <= P.x + 10) {
-            const stats = getActiveStats();
+            const stats = getActiveStatsWithSkills();
             let reflected = false;
+            let ironWillChance = getSkillEffect('ironWill') / 100;
             
             if (stats.reflectOnHit > 0 && Math.random() < stats.reflectOnHit) {
                 p.active = false;
@@ -806,31 +1260,63 @@ function update() {
                 setTimeout(() => { if (document.getElementById('drop-alert').innerHTML === "✨ REFLECTED ON HIT! ✨") document.getElementById('drop-alert').innerHTML = ""; }, 500);
             }
             
-            if (!reflected) {
+            if (!reflected && ironWillChance > 0 && Math.random() < ironWillChance) {
                 p.active = false;
-                hp--;
-                updateMaxHp();
-                combo = 0;
-                window.perfectCount = 0;
-                hitTaken = true;
-                updateUI();
-                if (hp <= 0) { 
-                    if (attemptRevive()) {
-                        updateUI();
-                    } else {
-                        end(false); 
-                        return; 
+                reflected = true;
+                document.getElementById('drop-alert').innerHTML = "💪 IRON WILL! Damage ignored! 💪";
+                setTimeout(() => { if (document.getElementById('drop-alert').innerHTML === "💪 IRON WILL! Damage ignored! 💪") document.getElementById('drop-alert').innerHTML = ""; }, 500);
+            }
+            
+            if (!reflected) {
+                let damageReduction = getSkillEffect('quickRecovery') / 100;
+                let actualDamage = 1;
+                if (damageReduction > 0 && Math.random() < damageReduction) {
+                    actualDamage = 0;
+                    document.getElementById('drop-alert').innerHTML = "💚 QUICK RECOVERY! Damage reduced! 💚";
+                    setTimeout(() => { if (document.getElementById('drop-alert').innerHTML === "💚 QUICK RECOVERY! Damage reduced! 💚") document.getElementById('drop-alert').innerHTML = ""; }, 500);
+                }
+                
+                if (actualDamage > 0) {
+                    p.active = false;
+                    hp--;
+                    updateMaxHp();
+                    combo = 0;
+                    window.perfectCount = 0;
+                    hitTaken = true;
+                    updateUI();
+                    if (hp <= 0) { 
+                        if (attemptRevive()) {
+                            updateUI();
+                        } else {
+                            end(false); 
+                            return; 
+                        }
                     }
+                } else {
+                    p.active = false;
                 }
             }
             continue;
         }
         if ((p.type === 'replica' || p.type === 'reflect') && p.x >= B.x - 20) {
             p.active = false;
-            bhp -= p.dmg || 10;
+            let damage = p.dmg || 10;
+            bhp -= damage;
             const boss = L_DATA[lvl];
             const percent = Math.max(0, (bhp / boss.hp) * 100);
             document.getElementById('boss-hp').style.width = `${percent}%`;
+            
+            if (skillTree.executioner > 0 && bhp > 0 && bhp <= boss.hp * 0.1) {
+                bhp = 0;
+                document.getElementById('drop-alert').innerHTML = "🔪 EXECUTIONER! Boss eliminated! 🔪";
+                setTimeout(() => {
+                    if (document.getElementById('drop-alert').innerHTML === "🔪 EXECUTIONER! Boss eliminated! 🔪")
+                        document.getElementById('drop-alert').innerHTML = "";
+                }, 2000);
+                end(true);
+                return;
+            }
+            
             if (bhp <= 0) { end(true); return; }
             continue;
         }
@@ -850,9 +1336,13 @@ function end(w) {
         if (!cleared.includes(lvl)) { cleared.push(lvl); localStorage.setItem('parry_cleared', JSON.stringify(cleared)); }
         if (!hitTaken) unlockBadge('flawless');
         if (cleared.length >= maxL) unlockBadge('champion');
-        checkLootDrops();
         
-        // Check collector badges after getting drops
+        let xpGain = L_DATA[lvl].xp;
+        let xpBoosterBonus = getSkillEffect('xpBooster');
+        xpGain += xpBoosterBonus;
+        addXP(xpGain);
+        
+        checkLootDrops();
         checkCollectorBadges();
         
         if (lvl === 5 && activeHelmet === 'hardmode' && !badges.includes('relentless')) {
@@ -911,20 +1401,17 @@ function draw() {
     ctx.arc(P.x - 5, P.y - 22, 6, 0, Math.PI * 2);
     ctx.fill();
     
-    // Draw angled rapier sword on player if equipped and not "none"
     if (activeSword && activeSword !== 'none') {
         const swordColor = swordCooldown > 0 ? '#666666' : (swordBuffActive ? '#00ffcc' : '#c0c0c0');
         ctx.save();
         ctx.translate(P.x + 12, P.y - 8);
-        ctx.rotate(-0.4); // Angled like a rapier
+        ctx.rotate(-0.4);
         ctx.shadowBlur = swordBuffActive ? 15 : 3;
         ctx.shadowColor = swordBuffActive ? '#00ffcc' : '#ffffff';
         
-        // Glow outline effect during buff
         if (swordBuffActive) {
             ctx.shadowBlur = 20;
             ctx.shadowColor = '#00ffcc';
-            // Draw extra glow layers
             for (let i = 0; i < 3; i++) {
                 ctx.globalAlpha = 0.3 - i * 0.1;
                 ctx.beginPath();
@@ -946,7 +1433,6 @@ function draw() {
             ctx.globalAlpha = 1;
         }
         
-        // Rapier blade (long thin triangle)
         ctx.beginPath();
         ctx.moveTo(0, 0);
         ctx.lineTo(28, -2);
@@ -955,7 +1441,6 @@ function draw() {
         ctx.fillStyle = swordColor;
         ctx.fill();
         
-        // Blade tip (sharp point)
         ctx.beginPath();
         ctx.moveTo(28, -2);
         ctx.lineTo(35, 0);
@@ -964,15 +1449,12 @@ function draw() {
         ctx.fillStyle = swordBuffActive ? '#00ffcc' : '#e0e0e0';
         ctx.fill();
         
-        // Crossguard
         ctx.fillStyle = swordBuffActive ? '#ffd700' : '#d4af37';
         ctx.fillRect(-2, -8, 6, 16);
         
-        // Grip
         ctx.fillStyle = '#8B4513';
         ctx.fillRect(-6, -3, 8, 6);
         
-        // Pommel
         ctx.beginPath();
         ctx.arc(-8, 0, 4, 0, Math.PI * 2);
         ctx.fillStyle = swordBuffActive ? '#ffd700' : '#d4af37';
@@ -983,7 +1465,7 @@ function draw() {
     
     ctx.restore();
     
-    const stats = getActiveStats();
+    const stats = getActiveStatsWithSkills();
     ctx.lineWidth = 5;
     if (P.st === 'parrying' || P.st === 'success') ctx.strokeStyle = '#ffffff';
     else if (P.st === 'miss') ctx.strokeStyle = '#ff3333';
@@ -1028,20 +1510,49 @@ function draw() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    const viewBtn = document.getElementById('view-badges-btn');
-    if (viewBtn) {
-        viewBtn.addEventListener('click', openBadgeViewer);
+    const viewBadgesBtn = document.getElementById('view-badges-btn');
+    if (viewBadgesBtn) {
+        viewBadgesBtn.addEventListener('click', openBadgeViewer);
     }
     
-    const closeBtn = document.getElementById('close-badge-modal');
-    if (closeBtn) {
-        closeBtn.addEventListener('click', closeBadgeModal);
+    const viewSkillsBtn = document.getElementById('view-skills-btn');
+    if (viewSkillsBtn) {
+        viewSkillsBtn.addEventListener('click', openSkillModal);
     }
     
-    const modal = document.getElementById('badge-modal');
-    if (modal) {
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal) closeBadgeModal();
+    const resetSkillsBtn = document.getElementById('reset-skills-btn');
+    if (resetSkillsBtn) {
+        resetSkillsBtn.addEventListener('click', resetAllSkills);
+    }
+    
+    const closeBadgeBtn = document.getElementById('close-badge-modal');
+    if (closeBadgeBtn) {
+        closeBadgeBtn.addEventListener('click', closeBadgeModal);
+    }
+    
+    const closeSkillBtn = document.getElementById('close-skill-modal');
+    if (closeSkillBtn) {
+        closeSkillBtn.addEventListener('click', closeSkillModal);
+    }
+    
+    const badgeModal = document.getElementById('badge-modal');
+    if (badgeModal) {
+        badgeModal.addEventListener('click', (e) => {
+            if (e.target === badgeModal) closeBadgeModal();
+        });
+    }
+    
+    const skillModal = document.getElementById('skill-modal');
+    if (skillModal) {
+        skillModal.addEventListener('click', (e) => {
+            if (e.target === skillModal) closeSkillModal();
+        });
+    }
+    
+    const skillConfirmModal = document.getElementById('skill-confirm-modal');
+    if (skillConfirmModal) {
+        skillConfirmModal.addEventListener('click', (e) => {
+            if (e.target === skillConfirmModal) cancelUpgrade();
         });
     }
 });
