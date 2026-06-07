@@ -22,25 +22,11 @@ let playerLevel = JSON.parse(localStorage.getItem('parry_level')) || 1;
 let playerXP = JSON.parse(localStorage.getItem('parry_xp')) || 0;
 let skillPoints = JSON.parse(localStorage.getItem('parry_skill_points')) || 0;
 
-// Skill Tree Data - Clean default values
+// Skill Tree Data
 let skillTree = JSON.parse(localStorage.getItem('parry_skill_tree')) || {
-    // Offense
-    sharpenedBlade: 0,
-    doubleStrike: 0,
-    criticalParry: 0,
-    executioner: 0,
-    masterReflexes: 0,
-    // Defense
-    toughSkin: 0,
-    quickRecovery: 0,
-    parryHeal: 0,
-    ironWill: 0,
-    reflectiveArmor: 0,
-    // Utility
-    luckyFinder: 0,
-    fastLearner: 0,
-    treasureHunter: 0,
-    xpBooster: 0
+    sharpenedBlade: 0, doubleStrike: 0, criticalParry: 0, executioner: 0, masterReflexes: 0,
+    toughSkin: 0, quickRecovery: 0, parryHeal: 0, ironWill: 0, reflectiveArmor: 0,
+    luckyFinder: 0, fastLearner: 0, treasureHunter: 0, xpBooster: 0
 };
 
 const S_OFF = 30, maxL = 5, P = {x: 150, y: 250, st: 'idle', tm: 0}, B = {x: 650, y: 230, w: 50, h: 80}, P_WIN = 25;
@@ -105,7 +91,6 @@ const BADGE_DATA = {
     completionist: { name: "🏆 COMPLETIONIST", desc: "Unlock all other badges", reward: "Unobtainable for now" }
 };
 
-// Skill definitions
 const SKILLS = {
     offense: [
         { id: 'sharpenedBlade', name: 'Sharpened\nBlade', icon: '🗡️', maxLevel: 5, desc: 'Each level adds +1 damage to reflected fireballs' },
@@ -140,14 +125,12 @@ function addXP(amount) {
     
     playerXP += xpGain;
     let xpNeeded = getXPNeeded();
-    let leveledUp = false;
     
     while (playerXP >= xpNeeded) {
         playerXP -= xpNeeded;
         playerLevel++;
         skillPoints++;
         xpNeeded = getXPNeeded();
-        leveledUp = true;
         document.getElementById('drop-alert').innerHTML = `⬆️ LEVEL UP! Now Level ${playerLevel}! +1 Skill Point! ⬆️`;
         setTimeout(() => {
             if (document.getElementById('drop-alert').innerHTML.includes("LEVEL UP")) 
@@ -161,7 +144,6 @@ function addXP(amount) {
     
     updateLevelUI();
     updateSkillTreeUI();
-    return leveledUp;
 }
 
 function updateLevelUI() {
@@ -240,7 +222,6 @@ function getSkillStatus(skillId, branch) {
 }
 
 function updateSkillTreeUI() {
-    // Offense branch
     const offenseContainer = document.getElementById('offense-tree');
     if (offenseContainer) {
         offenseContainer.innerHTML = '';
@@ -267,7 +248,6 @@ function updateSkillTreeUI() {
         });
     }
     
-    // Defense branch
     const defenseContainer = document.getElementById('defense-tree');
     if (defenseContainer) {
         defenseContainer.innerHTML = '';
@@ -294,7 +274,6 @@ function updateSkillTreeUI() {
         });
     }
     
-    // Utility branch
     const utilityContainer = document.getElementById('utility-tree');
     if (utilityContainer) {
         utilityContainer.innerHTML = '';
@@ -421,30 +400,20 @@ function cancelUpgrade() {
 
 function resetAllSkills() {
     if (confirm("⚠️ WARNING: This will refund ALL your skill points. You can respend them on different skills. Your level and XP will NOT be affected. Are you sure?")) {
-        // Calculate total skill points spent
         let totalSpent = 0;
         for (let skill in skillTree) {
             totalSpent += skillTree[skill];
         }
-        
-        // Add refunded points to current skill points
         skillPoints += totalSpent;
-        
-        // Reset all skills to 0
         skillTree = {
             sharpenedBlade: 0, doubleStrike: 0, criticalParry: 0, executioner: 0, masterReflexes: 0,
             toughSkin: 0, quickRecovery: 0, parryHeal: 0, ironWill: 0, reflectiveArmor: 0,
             luckyFinder: 0, fastLearner: 0, treasureHunter: 0, xpBooster: 0
         };
-        
-        // Save to localStorage
         localStorage.setItem('parry_skill_tree', JSON.stringify(skillTree));
         localStorage.setItem('parry_skill_points', skillPoints);
-        
-        // Update UI
         updateLevelUI();
         updateSkillTreeUI();
-        
         document.getElementById('drop-alert').innerHTML = "🔄 Skills reset! You can now respend your skill points. 🔄";
         setTimeout(() => {
             if (document.getElementById('drop-alert').innerHTML.includes("reset"))
@@ -507,7 +476,6 @@ function updateMaxHp() {
     let hearts = '';
     for (let i = 0; i < maxHp; i++) hearts += (i < hp) ? '❤️ ' : '🖤 ';
     document.getElementById('player-hp').innerHTML = `HP: ${hearts}`;
-    
     if (reviveMessageTimer > 0) {
         document.getElementById('player-hp').innerHTML += `<span style="color: #ff6600; margin-left: 10px;"> 🔥 ${reviveMessage} 🔥</span>`;
     }
@@ -802,7 +770,6 @@ function useSwordAbility() {
     swordCooldown = swordCooldownMax;
     
     let buffText = `⚔️ ${sword.name} activated for 3 seconds! ⚔️`;
-    
     document.getElementById('drop-alert').innerHTML = buffText;
     setTimeout(() => { 
         if (document.getElementById('drop-alert').innerHTML === buffText) 
@@ -935,12 +902,9 @@ function attemptRevive() {
         reviveUsed = true;
         const maxHp = getMaxHp();
         hp = maxHp;
-        
         reviveMessage = "RELENTLESS REVIVE!";
         reviveMessageTimer = 90;
-        
         updateMaxHp();
-        
         document.getElementById('drop-alert').innerHTML = "🔥 REVIVED BY RELENTLESS HELMET! 🔥";
         setTimeout(() => {
             if (document.getElementById('drop-alert').innerHTML === "🔥 REVIVED BY RELENTLESS HELMET! 🔥") 
@@ -1030,7 +994,6 @@ function reset() {
 function openBadgeViewer() {
     const modal = document.getElementById('badge-modal');
     const badgeList = document.getElementById('badge-list');
-    
     badgeList.innerHTML = '';
     
     for (const [id, data] of Object.entries(BADGE_DATA)) {
@@ -1052,7 +1015,6 @@ function openBadgeViewer() {
         `;
         badgeList.appendChild(badgeDiv);
     }
-    
     modal.classList.remove('hidden');
 }
 
@@ -1124,7 +1086,6 @@ window.addEventListener('keydown', (e) => {
                         if (window.perfectCount >= 5 && !badges.includes('perfectionist')) {
                             unlockBadge('perfectionist');
                         }
-                        // NO XP FROM PERFECT PARRY
                     }
                     
                     let damage = 10;
@@ -1142,7 +1103,6 @@ window.addEventListener('keydown', (e) => {
                     setTimeout(() => { if (document.getElementById('drop-alert').innerHTML === "⚡ FIREBALL REFLECTED! ⚡") document.getElementById('drop-alert').innerHTML = ""; }, 300);
                     
                     score++; combo++; shake = 8; P.st = 'success'; P.tm = 0;
-                    // NO XP FROM REGULAR PARRY
                     
                     if (combo > maxCombo) maxCombo = combo;
                     if (combo >= 5) unlockBadge('combo');
@@ -1332,6 +1292,7 @@ function end(w) {
     t.innerText = w ? "VICTORY ACHIEVED!" : "GAME OVER";
     t.style.color = w ? "#00ffcc" : "#ff4d4d";
     b.innerText = w ? "You defeated this boss! New loot may appear!" : "Press R to retry.";
+    
     if (w) {
         if (!cleared.includes(lvl)) { cleared.push(lvl); localStorage.setItem('parry_cleared', JSON.stringify(cleared)); }
         if (!hitTaken) unlockBadge('flawless');
@@ -1511,50 +1472,28 @@ function draw() {
 
 document.addEventListener('DOMContentLoaded', () => {
     const viewBadgesBtn = document.getElementById('view-badges-btn');
-    if (viewBadgesBtn) {
-        viewBadgesBtn.addEventListener('click', openBadgeViewer);
-    }
+    if (viewBadgesBtn) viewBadgesBtn.addEventListener('click', openBadgeViewer);
     
     const viewSkillsBtn = document.getElementById('view-skills-btn');
-    if (viewSkillsBtn) {
-        viewSkillsBtn.addEventListener('click', openSkillModal);
-    }
+    if (viewSkillsBtn) viewSkillsBtn.addEventListener('click', openSkillModal);
     
     const resetSkillsBtn = document.getElementById('reset-skills-btn');
-    if (resetSkillsBtn) {
-        resetSkillsBtn.addEventListener('click', resetAllSkills);
-    }
+    if (resetSkillsBtn) resetSkillsBtn.addEventListener('click', resetAllSkills);
     
     const closeBadgeBtn = document.getElementById('close-badge-modal');
-    if (closeBadgeBtn) {
-        closeBadgeBtn.addEventListener('click', closeBadgeModal);
-    }
+    if (closeBadgeBtn) closeBadgeBtn.addEventListener('click', closeBadgeModal);
     
     const closeSkillBtn = document.getElementById('close-skill-modal');
-    if (closeSkillBtn) {
-        closeSkillBtn.addEventListener('click', closeSkillModal);
-    }
+    if (closeSkillBtn) closeSkillBtn.addEventListener('click', closeSkillModal);
     
     const badgeModal = document.getElementById('badge-modal');
-    if (badgeModal) {
-        badgeModal.addEventListener('click', (e) => {
-            if (e.target === badgeModal) closeBadgeModal();
-        });
-    }
+    if (badgeModal) badgeModal.addEventListener('click', (e) => { if (e.target === badgeModal) closeBadgeModal(); });
     
     const skillModal = document.getElementById('skill-modal');
-    if (skillModal) {
-        skillModal.addEventListener('click', (e) => {
-            if (e.target === skillModal) closeSkillModal();
-        });
-    }
+    if (skillModal) skillModal.addEventListener('click', (e) => { if (e.target === skillModal) closeSkillModal(); });
     
     const skillConfirmModal = document.getElementById('skill-confirm-modal');
-    if (skillConfirmModal) {
-        skillConfirmModal.addEventListener('click', (e) => {
-            if (e.target === skillConfirmModal) cancelUpgrade();
-        });
-    }
+    if (skillConfirmModal) skillConfirmModal.addEventListener('click', (e) => { if (e.target === skillConfirmModal) cancelUpgrade(); });
 });
 
 function gameLoop() {
