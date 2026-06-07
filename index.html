@@ -51,6 +51,7 @@
         <div class="skin-slot locked" id="skin-mirror" onclick="clickSkin('mirror')">💠 Cosmic Mirror</div>
         <div class="skin-slot locked" id="skin-novice" onclick="clickSkin('novice')">📦 Novice Core</div>
         <div class="skin-slot locked" id="skin-advanced" onclick="clickSkin('advanced')">💎 Advanced Core</div>
+        <div class="skin-slot locked" id="skin-temporal" onclick="clickSkin('temporal')">⏰ Temporal Barrier</div>
     </div>
     
     <!-- HELMET RACK -->
@@ -63,6 +64,7 @@
         <div class="helmet-slot locked" id="helmet-archmage" onclick="clickHelmet('archmage')">💠 Star-Cap</div>
         <div class="helmet-slot unlocked" id="helmet-hardmode" onclick="clickHelmet('hardmode')">💀 Hard Mode</div>
         <div class="helmet-slot locked" id="helmet-relentless" onclick="clickHelmet('relentless')">🔥 Relentless</div>
+        <div class="helmet-slot locked" id="helmet-chronos" onclick="clickHelmet('chronos')">⌛ Chronos Crown</div>
     </div>
     
     <!-- SWORD RACK -->
@@ -73,6 +75,7 @@
         <div class="sword-slot locked" id="sword-triad" onclick="clickSword('triad')">🔵 Triad Edge</div>
         <div class="sword-slot locked" id="sword-chaos" onclick="clickSword('chaos')">🟡 Chaos Saber</div>
         <div class="sword-slot locked" id="sword-archmage" onclick="clickSword('archmage')">💠 Archmage Blade</div>
+        <div class="sword-slot locked" id="sword-time" onclick="clickSword('time')">🕐 Time Blade</div>
     </div>
     
     <!-- ACTIVE SWORD INDICATOR -->
@@ -89,6 +92,7 @@
             <button class="stage-btn" onclick="selectStage(3)">ST3: TRIAD</button>
             <button class="stage-btn" onclick="selectStage(4)">ST4: CHAOS</button>
             <button class="stage-btn" onclick="selectStage(5)">ST5: ARCHMAGE</button>
+            <button class="stage-btn" onclick="selectStage(6)">ST6: TIMEKEEPER</button>
         </div>
         <div class="utility-row">
             <button id="view-badges-btn" class="utility-btn badge-btn">🏆 BADGE BOOK</button>
@@ -129,20 +133,14 @@
             
             <!-- 3-Column Skill Tree Layout -->
             <div style="display: flex; gap: 20px; justify-content: space-between; flex-wrap: wrap;">
-                
-                <!-- OFFENSE BRANCH -->
                 <div style="flex: 1; min-width: 280px; background: rgba(255, 77, 77, 0.05); border-radius: 12px; padding: 15px;">
                     <h3 style="text-align: center; color: #ff4d4d; margin-top: 0;">🔴 OFFENSE</h3>
                     <div id="offense-tree" style="display: flex; flex-direction: column; align-items: center; gap: 8px;"></div>
                 </div>
-                
-                <!-- DEFENSE BRANCH -->
                 <div style="flex: 1; min-width: 280px; background: rgba(102, 252, 241, 0.05); border-radius: 12px; padding: 15px;">
                     <h3 style="text-align: center; color: #66fcf1; margin-top: 0;">🔵 DEFENSE</h3>
                     <div id="defense-tree" style="display: flex; flex-direction: column; align-items: center; gap: 8px;"></div>
                 </div>
-                
-                <!-- UTILITY BRANCH -->
                 <div style="flex: 1; min-width: 280px; background: rgba(102, 204, 102, 0.05); border-radius: 12px; padding: 15px;">
                     <h3 style="text-align: center; color: #66cc66; margin-top: 0;">🟢 UTILITY</h3>
                     <div id="utility-tree" style="display: flex; flex-direction: column; align-items: center; gap: 8px;"></div>

@@ -8,6 +8,12 @@ let reviveUsed = false;
 let reviveMessage = '';
 let reviveMessageTimer = 0;
 
+// Timekeeper variables
+let timekeeperFast = false;
+let timekeeperConsecutiveCount = 0;
+let timekeeperSwordActive = false;
+let timekeeperSwordTimer = 0;
+
 // Sword system variables
 let ownedSwords = JSON.parse(localStorage.getItem('parry_swords')) || ['none'];
 let swordCooldown = 0;
@@ -29,7 +35,7 @@ let skillTree = JSON.parse(localStorage.getItem('parry_skill_tree')) || {
     luckyFinder: 0, fastLearner: 0, treasureHunter: 0, xpBooster: 0
 };
 
-const S_OFF = 30, maxL = 5, P = {x: 150, y: 250, st: 'idle', tm: 0}, B = {x: 650, y: 230, w: 50, h: 80}, P_WIN = 25;
+const S_OFF = 30, maxL = 6, HALFWAY = 400, P = {x: 150, y: 250, st: 'idle', tm: 0}, B = {x: 650, y: 230, w: 50, h: 80}, P_WIN = 25;
 
 // Inventory data
 let cleared = JSON.parse(localStorage.getItem('parry_cleared')) || [];
@@ -41,11 +47,12 @@ const PLAYER_COLOR = '#66fcf1';
 const PLAYER_GLOW = '#88ffff';
 
 const L_DATA = {
-    1: {hp: 100, spd: 5, col: '#ff4d4d', glow: '#ff8888', t: "ST1: BRUTE", dropShield: 'brute', dropHelmet: 'brute', dropSword: 'brute', startDelay: 45, baseChance: 0.20, xp: 10},
-    2: {hp: 120, spd: 6, col: '#bf55ec', glow: '#d98eff', t: "ST2: TWIN", dropShield: 'chrono', dropHelmet: 'twin', dropSword: 'twin', startDelay: 50, baseChance: 0.15, xp: 20},
-    3: {hp: 130, spd: 6.5, col: '#3498db', glow: '#6ec4ff', t: "ST3: TRIAD", dropShield: 'resonance', dropHelmet: 'triad', dropSword: 'triad', startDelay: 55, baseChance: 0.10, xp: 30},
-    4: {hp: 150, spd: 7, col: '#f1c40f', glow: '#ffe066', t: "ST4: CHAOS", dropShield: 'chaos', dropHelmet: 'chaos', dropSword: 'chaos', startDelay: 60, baseChance: 0.05, xp: 40},
-    5: {hp: 200, spd: 8, col: '#e74c3c', glow: '#ff7777', t: "FINAL STAGE: ARCHMAGE", dropShield: 'mirror', dropHelmet: 'archmage', dropSword: 'archmage', startDelay: 70, baseChance: 0.02, xp: 50}
+    1: {hp: 100, spd: 5, col: '#ff4d4d', glow: '#ff8888', t: "ST1: BRUTE", dropShield: 'brute', dropHelmet: 'brute', dropSword: 'brute', startDelay: 45, baseChance: 0.20, xp: 10, isTimekeeper: false},
+    2: {hp: 120, spd: 6, col: '#bf55ec', glow: '#d98eff', t: "ST2: TWIN", dropShield: 'chrono', dropHelmet: 'twin', dropSword: 'twin', startDelay: 50, baseChance: 0.15, xp: 20, isTimekeeper: false},
+    3: {hp: 130, spd: 6.5, col: '#3498db', glow: '#6ec4ff', t: "ST3: TRIAD", dropShield: 'resonance', dropHelmet: 'triad', dropSword: 'triad', startDelay: 55, baseChance: 0.10, xp: 30, isTimekeeper: false},
+    4: {hp: 150, spd: 7, col: '#f1c40f', glow: '#ffe066', t: "ST4: CHAOS", dropShield: 'chaos', dropHelmet: 'chaos', dropSword: 'chaos', startDelay: 60, baseChance: 0.05, xp: 40, isTimekeeper: false},
+    5: {hp: 200, spd: 8, col: '#e74c3c', glow: '#ff7777', t: "FINAL STAGE: ARCHMAGE", dropShield: 'mirror', dropHelmet: 'archmage', dropSword: 'archmage', startDelay: 70, baseChance: 0.02, xp: 50, isTimekeeper: false},
+    6: {hp: 180, spd: 5, col: '#bf55ec', glow: '#d98eff', t: "ST6: TIMEKEEPER", dropShield: 'temporal', dropHelmet: 'chronos', dropSword: 'time', startDelay: 45, baseChance: 0.20, xp: 60, isTimekeeper: true}
 };
 
 const SWORD_DATA = {
@@ -54,29 +61,32 @@ const SWORD_DATA = {
     twin: { name: "Twin Fangs", ico: "🟣", boss: 2, buffSlow: 0.35, desc: "For 3 seconds: Slows projectiles by 35%", cooldown: "6 second cooldown" },
     triad: { name: "Triad Edge", ico: "🔵", boss: 3, buffReflectOnHit: 0.20, desc: "For 3 seconds: 20% reflect on hit chance", cooldown: "6 second cooldown" },
     chaos: { name: "Chaos Saber", ico: "🟡", boss: 4, buffHealParry: 0.25, desc: "For 3 seconds: 25% heal on parry chance", cooldown: "6 second cooldown" },
-    archmage: { name: "Archmage Blade", ico: "💠", boss: 5, buffExtraReplica: 0.35, buffExtraHeal: 0.20, desc: "For 3 seconds: 35% extra replica + 20% heal on parry", cooldown: "6 second cooldown" }
+    archmage: { name: "Archmage Blade", ico: "💠", boss: 5, buffExtraReplica: 0.35, buffExtraHeal: 0.20, desc: "For 3 seconds: 35% extra replica + 20% heal on parry", cooldown: "6 second cooldown" },
+    time: { name: "Time Blade", ico: "🕐", boss: 6, isTimekeeperSword: true, desc: "For 3 seconds: all projectiles within halfway point turn into parried balls", cooldown: "6 second cooldown" }
 };
 
 const SHIELD_STATS = {
-    default: { name: "Default Core", ico: "🔘", desc: "Standard shield. Parry sends fireball back.", parryWindow: 0, slow: 0, reflectOnHit: 0, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 0 },
-    brute: { name: "Brute's Bulwark", ico: "🔴", desc: "+25% parry window.", parryWindow: 0.25, slow: 0, reflectOnHit: 0, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 0 },
-    chrono: { name: "Chrono Deflector", ico: "🟣", desc: "Slows projectiles by 20%.", parryWindow: 0, slow: 0.20, reflectOnHit: 0, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 0 },
-    resonance: { name: "Resonance Ward", ico: "🔵", desc: "10% chance to reflect fireball back when HIT (instead of taking damage).", parryWindow: 0, slow: 0, reflectOnHit: 0.10, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 0 },
-    chaos: { name: "Chaos Core", ico: "🟡", desc: "15% chance to heal 1 heart on parry.", parryWindow: 0, slow: 0, reflectOnHit: 0, healParry: 0.15, extraReplica: 0, extraHeal: 0, maxHpBonus: 0 },
-    mirror: { name: "Cosmic Mirror", ico: "💠", desc: "20% chance for extra replica + 10% heal on parry.", parryWindow: 0, slow: 0, reflectOnHit: 0, healParry: 0, extraReplica: 0.20, extraHeal: 0.10, maxHpBonus: 0 },
-    novice: { name: "Novice Collector Core", ico: "📦", desc: "2x drop chance from bosses. No duplicate drops.", parryWindow: 0, slow: 0, reflectOnHit: 0, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 0 },
-    advanced: { name: "Advanced Collector Core", ico: "💎", desc: "3x drop chance from bosses. No duplicate drops.", parryWindow: 0, slow: 0, reflectOnHit: 0, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 0 }
+    default: { name: "Default Core", ico: "🔘", desc: "Standard shield. Parry sends fireball back.", parryWindow: 0, slow: 0, reflectOnHit: 0, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 0, reverseChance: 0 },
+    brute: { name: "Brute's Bulwark", ico: "🔴", desc: "+25% parry window.", parryWindow: 0.25, slow: 0, reflectOnHit: 0, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 0, reverseChance: 0 },
+    chrono: { name: "Chrono Deflector", ico: "🟣", desc: "Slows projectiles by 20%.", parryWindow: 0, slow: 0.20, reflectOnHit: 0, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 0, reverseChance: 0 },
+    resonance: { name: "Resonance Ward", ico: "🔵", desc: "10% chance to reflect fireball back when HIT (instead of taking damage).", parryWindow: 0, slow: 0, reflectOnHit: 0.10, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 0, reverseChance: 0 },
+    chaos: { name: "Chaos Core", ico: "🟡", desc: "15% chance to heal 1 heart on parry.", parryWindow: 0, slow: 0, reflectOnHit: 0, healParry: 0.15, extraReplica: 0, extraHeal: 0, maxHpBonus: 0, reverseChance: 0 },
+    mirror: { name: "Cosmic Mirror", ico: "💠", desc: "20% chance for extra replica + 10% heal on parry.", parryWindow: 0, slow: 0, reflectOnHit: 0, healParry: 0, extraReplica: 0.20, extraHeal: 0.10, maxHpBonus: 0, reverseChance: 0 },
+    novice: { name: "Novice Collector Core", ico: "📦", desc: "2x drop chance from bosses. No duplicate drops.", parryWindow: 0, slow: 0, reflectOnHit: 0, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 0, reverseChance: 0 },
+    advanced: { name: "Advanced Collector Core", ico: "💎", desc: "3x drop chance from bosses. No duplicate drops.", parryWindow: 0, slow: 0, reflectOnHit: 0, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 0, reverseChance: 0 },
+    temporal: { name: "Temporal Barrier", ico: "⏰", desc: "10% chance that fireballs passing the halfway point turn back toward the boss.", parryWindow: 0, slow: 0, reflectOnHit: 0, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 0, reverseChance: 0.10 }
 };
 
 const HELMET_STATS = {
-    recruit: { name: "Recruit's Sallet", ico: "🪖", desc: "+1 max HP.", parryWindow: 0, slow: 0, reflectOnHit: 0, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 1 },
-    brute: { name: "Brute's Horned Helm", ico: "🔴", desc: "+40% parry window.", parryWindow: 0.40, slow: 0, reflectOnHit: 0, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 0 },
-    twin: { name: "Twin's Linked Visor", ico: "🟣", desc: "Slows projectiles by 35%.", parryWindow: 0, slow: 0.35, reflectOnHit: 0, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 0 },
-    triad: { name: "Triad's Prism Helm", ico: "🔵", desc: "20% chance to reflect fireball back when HIT (instead of taking damage).", parryWindow: 0, slow: 0, reflectOnHit: 0.20, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 0 },
-    chaos: { name: "Chaos Crown", ico: "🟡", desc: "25% chance to heal 1 heart on parry.", parryWindow: 0, slow: 0, reflectOnHit: 0, healParry: 0.25, extraReplica: 0, extraHeal: 0, maxHpBonus: 0 },
-    archmage: { name: "Archmage's Star-Cap", ico: "💠", desc: "35% chance for extra replica + 20% heal on parry.", parryWindow: 0, slow: 0, reflectOnHit: 0, healParry: 0, extraReplica: 0.35, extraHeal: 0.20, maxHpBonus: 0 },
-    hardmode: { name: "Hard Mode Helm", ico: "💀", desc: "-2 max HP. For those who seek a challenge.", parryWindow: 0, slow: 0, reflectOnHit: 0, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: -2 },
-    relentless: { name: "Relentless Helmet", ico: "🔥", desc: "Revives you to max HP upon death (once per run).", parryWindow: 0, slow: 0, reflectOnHit: 0, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 0 }
+    recruit: { name: "Recruit's Sallet", ico: "🪖", desc: "+1 max HP.", parryWindow: 0, slow: 0, reflectOnHit: 0, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 1, reverseChance: 0 },
+    brute: { name: "Brute's Horned Helm", ico: "🔴", desc: "+40% parry window.", parryWindow: 0.40, slow: 0, reflectOnHit: 0, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 0, reverseChance: 0 },
+    twin: { name: "Twin's Linked Visor", ico: "🟣", desc: "Slows projectiles by 35%.", parryWindow: 0, slow: 0.35, reflectOnHit: 0, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 0, reverseChance: 0 },
+    triad: { name: "Triad's Prism Helm", ico: "🔵", desc: "20% chance to reflect fireball back when HIT (instead of taking damage).", parryWindow: 0, slow: 0, reflectOnHit: 0.20, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 0, reverseChance: 0 },
+    chaos: { name: "Chaos Crown", ico: "🟡", desc: "25% chance to heal 1 heart on parry.", parryWindow: 0, slow: 0, reflectOnHit: 0, healParry: 0.25, extraReplica: 0, extraHeal: 0, maxHpBonus: 0, reverseChance: 0 },
+    archmage: { name: "Archmage's Star-Cap", ico: "💠", desc: "35% chance for extra replica + 20% heal on parry.", parryWindow: 0, slow: 0, reflectOnHit: 0, healParry: 0, extraReplica: 0.35, extraHeal: 0.20, maxHpBonus: 0, reverseChance: 0 },
+    hardmode: { name: "Hard Mode Helm", ico: "💀", desc: "-2 max HP. For those who seek a challenge.", parryWindow: 0, slow: 0, reflectOnHit: 0, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: -2, reverseChance: 0 },
+    relentless: { name: "Relentless Helmet", ico: "🔥", desc: "Revives you to max HP upon death (once per run).", parryWindow: 0, slow: 0, reflectOnHit: 0, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 0, reverseChance: 0 },
+    chronos: { name: "Chronos Crown", ico: "⌛", desc: "15% chance that fireballs passing the halfway point turn back toward the boss.", parryWindow: 0, slow: 0, reflectOnHit: 0, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 0, reverseChance: 0.15 }
 };
 
 const BADGE_DATA = {
@@ -113,6 +123,32 @@ const SKILLS = {
         { id: 'xpBooster', name: 'XP\nBooster', icon: '💰', maxLevel: 3, desc: 'Each level adds +10 XP per boss kill' }
     ]
 };
+
+function getReverseChance() {
+    let chance = 0;
+    if (SHIELD_STATS[activeShield]?.reverseChance) chance += SHIELD_STATS[activeShield].reverseChance;
+    if (HELMET_STATS[activeHelmet]?.reverseChance) chance += HELMET_STATS[activeHelmet].reverseChance;
+    return chance;
+}
+
+function useTimeBlade() {
+    if (!activeSword || activeSword !== 'time') return false;
+    if (timekeeperSwordActive) return false;
+    if (swordCooldown > 0) return false;
+    
+    timekeeperSwordActive = true;
+    timekeeperSwordTimer = 180;
+    swordCooldown = swordCooldownMax;
+    
+    document.getElementById('drop-alert').innerHTML = "🕐 TIME BLADE ACTIVATED! Projectiles within halfway point reverse! 🕐";
+    setTimeout(() => {
+        if (document.getElementById('drop-alert').innerHTML === "🕐 TIME BLADE ACTIVATED! Projectiles within halfway point reverse! 🕐")
+            document.getElementById('drop-alert').innerHTML = "";
+    }, 2000);
+    
+    renderSwordUI();
+    return true;
+}
 
 function getXPNeeded() {
     return 100 + ((playerLevel - 1) * 50);
@@ -484,13 +520,24 @@ function updateMaxHp() {
 function addProjectile(speed, type = 'in', x = B.x, customDamage = 10, customColor = null) {
     const stats = getActiveStatsWithSkills();
     let finalSpeed = speed;
-    if (type === 'in' && stats.slow > 0) finalSpeed = speed * (1 - stats.slow);
     let color = customColor;
-    if (!color) {
-        if (type === 'reflect') color = PLAYER_COLOR;
-        else if (type === 'replica') color = PLAYER_GLOW;
-        else color = '#ffb300';
+    
+    if (lvl === 6 && type === 'in') {
+        if (timekeeperFast) {
+            color = '#8B008B';
+        } else {
+            color = '#88ccff';
+        }
+    } else if (type === 'reflect') {
+        color = PLAYER_COLOR;
+    } else if (type === 'replica') {
+        color = PLAYER_GLOW;
+    } else {
+        color = '#ffb300';
     }
+    
+    if (type === 'in' && stats.slow > 0 && lvl !== 6) finalSpeed = speed * (1 - stats.slow);
+    
     projs.push({x, y: P.y, vx: -finalSpeed, sz: 10, active: true, type, dmg: customDamage, color: color});
 }
 
@@ -506,6 +553,8 @@ function spawn() {
             accumulatedDelay += Math.floor(Math.random() * 30) + 15; 
             sTimers.push(accumulatedDelay);
         }
+    } else if (lvl === 6) {
+        // Timekeeper shoots on timer
     }
 }
 
@@ -591,6 +640,9 @@ function selectStage(n) {
     swordBuffActive = false;
     swordBuffRemaining = 0;
     activeSwordBuff = null;
+    timekeeperSwordActive = false;
+    timekeeperSwordTimer = 0;
+    
     lvl = n;
     const boss = L_DATA[lvl];
     bhp = boss.hp;
@@ -611,6 +663,12 @@ function selectStage(n) {
     b.style.boxShadow = `0 0 10px ${boss.col}`;
     b.style.width = '100%';
     updateBtnUI();
+    
+    if (boss.isTimekeeper) {
+        timekeeperFast = false;
+        timekeeperConsecutiveCount = 1;
+        addProjectile(5, 'in');
+    }
 }
 
 function updateUI() {
@@ -746,6 +804,11 @@ function useSwordAbility() {
         return false;
     }
     
+// Time Blade special ability (works on ALL bosses)
+if (activeSword === 'time') {
+    return useTimeBlade();
+}
+    
     if (swordCooldown > 0) {
         const secondsLeft = Math.ceil(swordCooldown / 60);
         document.getElementById('drop-alert').innerHTML = `⏳ Sword on cooldown! (${secondsLeft}s) ⏳`;
@@ -781,7 +844,7 @@ function useSwordAbility() {
 }
 
 function renderInventoryUI() {
-    const allShields = ['default', 'brute', 'chrono', 'resonance', 'chaos', 'mirror', 'novice', 'advanced'];
+    const allShields = ['default', 'brute', 'chrono', 'resonance', 'chaos', 'mirror', 'novice', 'advanced', 'temporal'];
     for (let id of allShields) {
         const el = document.getElementById('skin-' + id);
         if (el) {
@@ -792,7 +855,7 @@ function renderInventoryUI() {
             }
         }
     }
-    const allHelmets = ['recruit', 'brute', 'twin', 'triad', 'chaos', 'archmage', 'hardmode', 'relentless'];
+    const allHelmets = ['recruit', 'brute', 'twin', 'triad', 'chaos', 'archmage', 'hardmode', 'relentless', 'chronos'];
     for (let id of allHelmets) {
         const el = document.getElementById('helmet-' + id);
         if (el) {
@@ -807,7 +870,7 @@ function renderInventoryUI() {
 }
 
 function renderSwordUI() {
-    const allSwords = ['none', 'brute', 'twin', 'triad', 'chaos', 'archmage'];
+    const allSwords = ['none', 'brute', 'twin', 'triad', 'chaos', 'archmage', 'time'];
     for (let id of allSwords) {
         const el = document.getElementById('sword-' + id);
         if (el) {
@@ -868,7 +931,7 @@ function closeSkillModal() {
 function checkCollectorBadges() {
     const bossDrops = [...ownedShields, ...ownedHelmets, ...ownedSwords];
     const realDrops = bossDrops.filter(item => 
-        !['default', 'recruit', 'novice', 'advanced', 'hardmode', 'relentless', 'none'].includes(item)
+        !['default', 'recruit', 'novice', 'advanced', 'hardmode', 'relentless', 'none', 'temporal', 'chronos', 'time'].includes(item)
     );
     
     if (realDrops.length >= 5 && !badges.includes('novice')) {
@@ -974,6 +1037,8 @@ function reset() {
     swordBuffActive = false;
     swordBuffRemaining = 0;
     activeSwordBuff = null;
+    timekeeperSwordActive = false;
+    timekeeperSwordTimer = 0;
     isWaitingToStart = true; 
     lvl = 0; 
     projs = []; 
@@ -1097,7 +1162,6 @@ window.addEventListener('keydown', (e) => {
                     target.vx = Math.abs(target.vx) * 1.2;
                     target.type = 'reflect';
                     target.dmg = damage;
-                    target.color = PLAYER_COLOR;
                     
                     document.getElementById('drop-alert').innerHTML = "⚡ FIREBALL REFLECTED! ⚡";
                     setTimeout(() => { if (document.getElementById('drop-alert').innerHTML === "⚡ FIREBALL REFLECTED! ⚡") document.getElementById('drop-alert').innerHTML = ""; }, 300);
@@ -1169,6 +1233,18 @@ function update() {
         }
     }
     
+    if (timekeeperSwordActive) {
+        timekeeperSwordTimer--;
+        if (timekeeperSwordTimer <= 0) {
+            timekeeperSwordActive = false;
+            document.getElementById('drop-alert').innerHTML = "🕐 Time Blade effect ended! 🕐";
+            setTimeout(() => {
+                if (document.getElementById('drop-alert').innerHTML === "🕐 Time Blade effect ended! 🕐")
+                    document.getElementById('drop-alert').innerHTML = "";
+            }, 1500);
+        }
+    }
+    
     if (reviveMessageTimer > 0) {
         reviveMessageTimer--;
         if (reviveMessageTimer === 0) {
@@ -1183,15 +1259,79 @@ function update() {
     }
     parryMessages = parryMessages.filter(m => m.life > 0);
     
-    if (lvl === 2 && bCount === 1 && sTime === 1) { addProjectile(L_DATA[lvl].spd); bCount = 0; }
-    if (lvl === 3 && bCount > 0 && sTime === 1) { addProjectile(L_DATA[lvl].spd); bCount--; if(bCount > 0) sTime = 25; }
-    if (lvl === 4 && sTimers.length > 0) sTimers = sTimers.map(t => { if (t - 1 === 0) addProjectile(L_DATA[lvl].spd); return t - 1; }).filter(t => t > 0);
-    if (lvl === 5 && sTimers.length > 0) sTimers = sTimers.map(t => { if (t - 1 === 0) addProjectile(L_DATA[lvl].spd); return t - 1; }).filter(t => t > 0);
+    // HALFWAY POINT REVERSAL FOR ALL BOSSES (from Temporal Barrier and Chronos Crown)
+    const reverseChance = getReverseChance();
+    if (reverseChance > 0) {
+        for (let i = 0; i < projs.length; i++) {
+            const p = projs[i];
+            if (p.active && p.type === 'in' && p.x <= HALFWAY && p.x >= HALFWAY - 5 && !p.markedForReverse) {
+                if (Math.random() < reverseChance) {
+                    p.markedForReverse = true;
+                    p.vx = Math.abs(p.vx) * 1.2;
+                    p.type = 'reflect';
+                    p.color = PLAYER_COLOR;
+                    document.getElementById('drop-alert').innerHTML = "⏰ TIME REVERSAL! Fireball sent back! ⏰";
+                    setTimeout(() => {
+                        if (document.getElementById('drop-alert').innerHTML === "⏰ TIME REVERSAL! Fireball sent back! ⏰")
+                            document.getElementById('drop-alert').innerHTML = "";
+                    }, 800);
+                }
+            }
+        }
+    }
     
-    let act = bCount > 0 || projs.some(p => p.active) || sTimers.length > 0;
-    if (!act) { 
-        if (--sTime <= 0) spawn(); 
-    } else if (sTime > 0) sTime--;
+    // Time Blade active effect (only for Timekeeper)
+// Time Blade active effect (works on ALL bosses)
+    if (timekeeperSwordActive) {
+        for (let i = 0; i < projs.length; i++) {
+            const p = projs[i];
+            if (p.active && p.type === 'in' && p.x <= HALFWAY && !p.markedForReverse) {
+                p.markedForReverse = true;
+                p.vx = Math.abs(p.vx) * 1.2;
+                p.type = 'reflect';
+                p.color = PLAYER_COLOR;
+            }   
+        }
+    }
+    
+    // Regular boss spawning logic
+    if (lvl !== 6) {
+        if (lvl === 2 && bCount === 1 && sTime === 1) { addProjectile(L_DATA[lvl].spd); bCount = 0; }
+        if (lvl === 3 && bCount > 0 && sTime === 1) { addProjectile(L_DATA[lvl].spd); bCount--; if(bCount > 0) sTime = 25; }
+        if (lvl === 4 && sTimers.length > 0) sTimers = sTimers.map(t => { if (t - 1 === 0) addProjectile(L_DATA[lvl].spd); return t - 1; }).filter(t => t > 0);
+        if (lvl === 5 && sTimers.length > 0) sTimers = sTimers.map(t => { if (t - 1 === 0) addProjectile(L_DATA[lvl].spd); return t - 1; }).filter(t => t > 0);
+        
+        let act = bCount > 0 || projs.some(p => p.active) || sTimers.length > 0;
+        if (!act) { 
+            if (--sTime <= 0) spawn(); 
+        } else if (sTime > 0) sTime--;
+    } else {
+        // Timekeeper: spawn new projectile when none exist
+        if (projs.filter(p => p.type === 'in' || p.type === 'reflect').length === 0 && !over) {
+            if (sTime <= 0) {
+                let nextIsFast;
+                
+                if (timekeeperConsecutiveCount >= 3) {
+                    nextIsFast = !timekeeperFast;
+                } else {
+                    nextIsFast = Math.random() < 0.5;
+                }
+                
+                if (nextIsFast === timekeeperFast) {
+                    timekeeperConsecutiveCount++;
+                } else {
+                    timekeeperConsecutiveCount = 1;
+                }
+                
+                timekeeperFast = nextIsFast;
+                const speed = timekeeperFast ? 10 : 5;
+                addProjectile(speed, 'in');
+                sTime = 45;
+            } else {
+                sTime--;
+            }
+        }
+    }
     
     for (let i = 0; i < projs.length; i++) {
         const p = projs[i];
@@ -1296,7 +1436,7 @@ function end(w) {
     if (w) {
         if (!cleared.includes(lvl)) { cleared.push(lvl); localStorage.setItem('parry_cleared', JSON.stringify(cleared)); }
         if (!hitTaken) unlockBadge('flawless');
-        if (cleared.length >= maxL) unlockBadge('champion');
+        if (cleared.length >= 5 && lvl <= 5) unlockBadge('champion');
         
         let xpGain = L_DATA[lvl].xp;
         let xpBoosterBonus = getSkillEffect('xpBooster');
@@ -1322,6 +1462,15 @@ function draw() {
     ctx.moveTo(0, 270);
     ctx.lineTo(canvas.width, 270);
     ctx.stroke();
+    
+    // Draw halfway line for ALL bosses (semi-transparent)
+    ctx.beginPath();
+    ctx.moveTo(HALFWAY, 0);
+    ctx.lineTo(HALFWAY, canvas.height);
+    ctx.strokeStyle = 'rgba(136, 204, 255, 0.3)';
+    ctx.setLineDash([5, 5]);
+    ctx.stroke();
+    ctx.setLineDash([]);
     
     let bCol = isWaitingToStart ? '#455a64' : L_DATA[lvl].col;
     ctx.fillStyle = bCol;
