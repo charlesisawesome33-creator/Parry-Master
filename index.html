@@ -81,17 +81,21 @@
         <span id="sword-cooldown-indicator"></span>
     </div>
     
-    <!-- FIGHT LEVEL SELECTION CONSOLE -->
-    <div id="selector-panel">
+<!-- FIGHT LEVEL SELECTION CONSOLE -->
+<div id="selector-panel">
+    <div class="boss-row">
         <button class="stage-btn" onclick="selectStage(1)">ST1: BRUTE</button>
         <button class="stage-btn" onclick="selectStage(2)">ST2: TWIN</button>
         <button class="stage-btn" onclick="selectStage(3)">ST3: TRIAD</button>
         <button class="stage-btn" onclick="selectStage(4)">ST4: CHAOS</button>
         <button class="stage-btn" onclick="selectStage(5)">ST5: ARCHMAGE</button>
-        <button id="view-badges-btn" style="background: #1f2833; border: 2px solid #f1c40f; color: #f1c40f; padding: 10px 20px; font-size: 14px; font-weight: bold; cursor: pointer; border-radius: 4px;">🏆 BADGE BOOK</button>
-        <button id="view-skills-btn" style="background: #1f2833; border: 2px solid #66fcf1; color: #66fcf1; padding: 10px 20px; font-size: 14px; font-weight: bold; cursor: pointer; border-radius: 4px;">🌿 SKILL TREE</button>
-        <button id="reset-skills-btn" style="background: #1f2833; border: 2px solid #ff4d4d; color: #ff4d4d; padding: 10px 20px; font-size: 14px; font-weight: bold; cursor: pointer; border-radius: 4px;">🔄 RESET SKILLS</button>
     </div>
+    <div class="utility-row">
+        <button id="view-badges-btn" class="utility-btn badge-btn">🏆 BADGE BOOK</button>
+        <button id="view-skills-btn" class="utility-btn skill-btn">🌿 SKILL TREE</button>
+        <button id="reset-skills-btn" class="utility-btn reset-btn">🔄 RESET SKILLS</button>
+    </div>
+</div>
     
     <!-- BADGE BOOK MODAL -->
     <div id="badge-modal" class="hidden">

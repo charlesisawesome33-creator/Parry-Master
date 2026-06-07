@@ -100,8 +100,8 @@ const BADGE_DATA = {
     champion: { name: "👑 CHAMPION", desc: "Defeat all 5 boss styles", reward: "No reward (achievement only)" },
     perfectionist: { name: "🎯 PERFECTIONIST", desc: "Get 5 PERFECT parries in one fight", reward: "PERFECT parries deal 15 damage (instead of 10)" },
     novice: { name: "📦 NOVICE COLLECTOR", desc: "Collect any 5 boss drops (shields, helmets, or swords from ST1-ST5)", reward: "Unlocks Novice Collector Core 📦 (2x drop chance from bosses)" },
-    advanced: { name: "💎 ADVANCED COLLECTOR", desc: "Collect all 15 boss drops (5 shields + 5 helmets + 5 swords from ST1-ST5)", reward: "Unlocks Advanced Collector Core 💎 (3x drop chance from bosses)" },
-    relentless: { name: "🔥 RELENTLESS", desc: "Defeat the ARCHMAGE (ST5) while wearing the Hard Mode Helm", reward: "Unlocks Relentless Helmet (revives to max HP upon death, once per run)" },
+    advanced: { name: "💎 ADVANCED COLLECTOR", desc: "Collect all boss drops from ST1-ST5", reward: "Unlocks Advanced Collector Core 💎 (3x drop chance from bosses)" },
+    relentless: { name: "🔥 RELENTLESS", desc: "Defeat the ARCHMAGE (ST5) with Default Shield, No Sword, and Hard Mode Helm", reward: "Unlocks Relentless Helmet (revives to max HP upon death, once per run)" },
     completionist: { name: "🏆 COMPLETIONIST", desc: "Unlock all other badges", reward: "Unobtainable for now" }
 };
 
@@ -1345,7 +1345,7 @@ function end(w) {
         checkLootDrops();
         checkCollectorBadges();
         
-        if (lvl === 5 && activeHelmet === 'hardmode' && !badges.includes('relentless')) {
+        if (lvl === 5 && activeShield === 'default' && activeSword === 'none' && activeHelmet === 'hardmode' && !badges.includes('relentless')) {
             unlockBadge('relentless');
         }
     }
