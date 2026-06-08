@@ -13,6 +13,7 @@ let timekeeperFast = false;
 let timekeeperConsecutiveCount = 0;
 let timekeeperSwordActive = false;
 let timekeeperSwordTimer = 0;
+let timekeeperTimeBladeBonus = 0; // +15% reverse chance when active
 
 // Sword system variables
 let ownedSwords = JSON.parse(localStorage.getItem('parry_swords')) || ['none'];
@@ -52,41 +53,41 @@ const L_DATA = {
     3: {hp: 130, spd: 6.5, col: '#3498db', glow: '#6ec4ff', t: "ST3: TRIAD", dropShield: 'resonance', dropHelmet: 'triad', dropSword: 'triad', startDelay: 55, baseChance: 0.10, xp: 30, isTimekeeper: false},
     4: {hp: 150, spd: 7, col: '#f1c40f', glow: '#ffe066', t: "ST4: CHAOS", dropShield: 'chaos', dropHelmet: 'chaos', dropSword: 'chaos', startDelay: 60, baseChance: 0.05, xp: 40, isTimekeeper: false},
     5: {hp: 200, spd: 8, col: '#e74c3c', glow: '#ff7777', t: "FINAL STAGE: ARCHMAGE", dropShield: 'mirror', dropHelmet: 'archmage', dropSword: 'archmage', startDelay: 70, baseChance: 0.02, xp: 50, isTimekeeper: false},
-    6: {hp: 180, spd: 5, col: '#bf55ec', glow: '#d98eff', t: "ST6: TIMEKEEPER", dropShield: 'temporal', dropHelmet: 'chronos', dropSword: 'time', startDelay: 45, baseChance: 0.20, xp: 60, isTimekeeper: true}
+    6: {hp: 250, spd: 5, col: '#bf55ec', glow: '#d98eff', t: "ST6: TIMEKEEPER", dropShield: 'temporal', dropHelmet: 'chronos', dropSword: 'time', startDelay: 45, baseChance: 0.10, xp: 60, isTimekeeper: true}
 };
 
 const SWORD_DATA = {
     none: { name: "No Sword", ico: "⚔️", boss: 0, desc: "Unequip your sword. No ability.", cooldown: "" },
     brute: { name: "Brute Cleaver", ico: "🔴", boss: 1, buffParryWindow: 0.25, desc: "For 3 seconds: +25% parry window", cooldown: "6 second cooldown" },
-    twin: { name: "Twin Fangs", ico: "🟣", boss: 2, buffSlow: 0.35, desc: "For 3 seconds: Slows projectiles by 35%", cooldown: "6 second cooldown" },
+    twin: { name: "Twin Fangs", ico: "🟣", boss: 2, buffSlow: 0.20, desc: "For 3 seconds: +20% projectile slow", cooldown: "6 second cooldown" },
     triad: { name: "Triad Edge", ico: "🔵", boss: 3, buffReflectOnHit: 0.20, desc: "For 3 seconds: 20% reflect on hit chance", cooldown: "6 second cooldown" },
     chaos: { name: "Chaos Saber", ico: "🟡", boss: 4, buffHealParry: 0.25, desc: "For 3 seconds: 25% heal on parry chance", cooldown: "6 second cooldown" },
     archmage: { name: "Archmage Blade", ico: "💠", boss: 5, buffExtraReplica: 0.35, buffExtraHeal: 0.20, desc: "For 3 seconds: 35% extra replica + 20% heal on parry", cooldown: "6 second cooldown" },
-    time: { name: "Time Blade", ico: "🕐", boss: 6, isTimekeeperSword: true, desc: "For 3 seconds: all projectiles within halfway point turn into parried balls", cooldown: "6 second cooldown" }
+    time: { name: "Time Blade", ico: "🕐", boss: 6, isTimekeeperSword: true, desc: "For 3 seconds: +15% chance for projectiles within halfway to reverse", cooldown: "6 second cooldown" }
 };
 
 const SHIELD_STATS = {
     default: { name: "Default Core", ico: "🔘", desc: "Standard shield. Parry sends fireball back.", parryWindow: 0, slow: 0, reflectOnHit: 0, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 0, reverseChance: 0 },
     brute: { name: "Brute's Bulwark", ico: "🔴", desc: "+25% parry window.", parryWindow: 0.25, slow: 0, reflectOnHit: 0, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 0, reverseChance: 0 },
-    chrono: { name: "Chrono Deflector", ico: "🟣", desc: "Slows projectiles by 20%.", parryWindow: 0, slow: 0.20, reflectOnHit: 0, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 0, reverseChance: 0 },
+    chrono: { name: "Chrono Deflector", ico: "🟣", desc: "Slows projectiles by 10%.", parryWindow: 0, slow: 0.10, reflectOnHit: 0, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 0, reverseChance: 0 },
     resonance: { name: "Resonance Ward", ico: "🔵", desc: "10% chance to reflect fireball back when HIT (instead of taking damage).", parryWindow: 0, slow: 0, reflectOnHit: 0.10, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 0, reverseChance: 0 },
     chaos: { name: "Chaos Core", ico: "🟡", desc: "15% chance to heal 1 heart on parry.", parryWindow: 0, slow: 0, reflectOnHit: 0, healParry: 0.15, extraReplica: 0, extraHeal: 0, maxHpBonus: 0, reverseChance: 0 },
     mirror: { name: "Cosmic Mirror", ico: "💠", desc: "20% chance for extra replica + 10% heal on parry.", parryWindow: 0, slow: 0, reflectOnHit: 0, healParry: 0, extraReplica: 0.20, extraHeal: 0.10, maxHpBonus: 0, reverseChance: 0 },
     novice: { name: "Novice Collector Core", ico: "📦", desc: "2x drop chance from bosses. No duplicate drops.", parryWindow: 0, slow: 0, reflectOnHit: 0, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 0, reverseChance: 0 },
     advanced: { name: "Advanced Collector Core", ico: "💎", desc: "3x drop chance from bosses. No duplicate drops.", parryWindow: 0, slow: 0, reflectOnHit: 0, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 0, reverseChance: 0 },
-    temporal: { name: "Temporal Barrier", ico: "⏰", desc: "10% chance that fireballs passing the halfway point turn back toward the boss.", parryWindow: 0, slow: 0, reflectOnHit: 0, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 0, reverseChance: 0.10 }
+    temporal: { name: "Temporal Barrier", ico: "⏰", desc: "5% chance that fireballs passing the halfway point turn back toward the boss.", parryWindow: 0, slow: 0, reflectOnHit: 0, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 0, reverseChance: 0.05 }
 };
 
 const HELMET_STATS = {
     recruit: { name: "Recruit's Sallet", ico: "🪖", desc: "+1 max HP.", parryWindow: 0, slow: 0, reflectOnHit: 0, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 1, reverseChance: 0 },
     brute: { name: "Brute's Horned Helm", ico: "🔴", desc: "+40% parry window.", parryWindow: 0.40, slow: 0, reflectOnHit: 0, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 0, reverseChance: 0 },
-    twin: { name: "Twin's Linked Visor", ico: "🟣", desc: "Slows projectiles by 35%.", parryWindow: 0, slow: 0.35, reflectOnHit: 0, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 0, reverseChance: 0 },
+    twin: { name: "Twin's Linked Visor", ico: "🟣", desc: "Slows projectiles by 20%.", parryWindow: 0, slow: 0.20, reflectOnHit: 0, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 0, reverseChance: 0 },
     triad: { name: "Triad's Prism Helm", ico: "🔵", desc: "20% chance to reflect fireball back when HIT (instead of taking damage).", parryWindow: 0, slow: 0, reflectOnHit: 0.20, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 0, reverseChance: 0 },
     chaos: { name: "Chaos Crown", ico: "🟡", desc: "25% chance to heal 1 heart on parry.", parryWindow: 0, slow: 0, reflectOnHit: 0, healParry: 0.25, extraReplica: 0, extraHeal: 0, maxHpBonus: 0, reverseChance: 0 },
     archmage: { name: "Archmage's Star-Cap", ico: "💠", desc: "35% chance for extra replica + 20% heal on parry.", parryWindow: 0, slow: 0, reflectOnHit: 0, healParry: 0, extraReplica: 0.35, extraHeal: 0.20, maxHpBonus: 0, reverseChance: 0 },
     hardmode: { name: "Hard Mode Helm", ico: "💀", desc: "-2 max HP. For those who seek a challenge.", parryWindow: 0, slow: 0, reflectOnHit: 0, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: -2, reverseChance: 0 },
     relentless: { name: "Relentless Helmet", ico: "🔥", desc: "Revives you to max HP upon death (once per run).", parryWindow: 0, slow: 0, reflectOnHit: 0, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 0, reverseChance: 0 },
-    chronos: { name: "Chronos Crown", ico: "⌛", desc: "15% chance that fireballs passing the halfway point turn back toward the boss.", parryWindow: 0, slow: 0, reflectOnHit: 0, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 0, reverseChance: 0.15 }
+    chronos: { name: "Chronos Crown", ico: "⌛", desc: "5% chance that fireballs passing the halfway point turn back toward the boss.", parryWindow: 0, slow: 0, reflectOnHit: 0, healParry: 0, extraReplica: 0, extraHeal: 0, maxHpBonus: 0, reverseChance: 0.05 }
 };
 
 const BADGE_DATA = {
@@ -128,6 +129,7 @@ function getReverseChance() {
     let chance = 0;
     if (SHIELD_STATS[activeShield]?.reverseChance) chance += SHIELD_STATS[activeShield].reverseChance;
     if (HELMET_STATS[activeHelmet]?.reverseChance) chance += HELMET_STATS[activeHelmet].reverseChance;
+    if (timekeeperSwordActive) chance += 0.15; // Time Blade adds +15% when active
     return chance;
 }
 
@@ -140,9 +142,9 @@ function useTimeBlade() {
     timekeeperSwordTimer = 180;
     swordCooldown = swordCooldownMax;
     
-    document.getElementById('drop-alert').innerHTML = "🕐 TIME BLADE ACTIVATED! Projectiles within halfway point reverse! 🕐";
+    document.getElementById('drop-alert').innerHTML = "🕐 TIME BLADE ACTIVATED! +15% reversal chance for 3 seconds! 🕐";
     setTimeout(() => {
-        if (document.getElementById('drop-alert').innerHTML === "🕐 TIME BLADE ACTIVATED! Projectiles within halfway point reverse! 🕐")
+        if (document.getElementById('drop-alert').innerHTML === "🕐 TIME BLADE ACTIVATED! +15% reversal chance for 3 seconds! 🕐")
             document.getElementById('drop-alert').innerHTML = "";
     }, 2000);
     
@@ -478,6 +480,7 @@ function getActiveStatsWithSkills() {
     let extraReplica = shield.extraReplica + helmet.extraReplica + (getSkillEffect('doubleStrike') / 100);
     let extraHeal = shield.extraHeal + helmet.extraHeal;
     
+    // Apply sword buff (Twin Fangs slow)
     if (swordBuffActive && activeSwordBuff) {
         if (activeSwordBuff.parryWindow) parryWindow += activeSwordBuff.parryWindow;
         if (activeSwordBuff.slow) slow += activeSwordBuff.slow;
@@ -532,13 +535,19 @@ function addProjectile(speed, type = 'in', x = B.x, customDamage = 10, customCol
         color = PLAYER_COLOR;
     } else if (type === 'replica') {
         color = PLAYER_GLOW;
+    } else if (type === 'boss_reverse') {
+        color = '#8B0000'; // Dark red for boss reversal
+        type = 'in';
     } else {
         color = '#ffb300';
     }
     
     if (type === 'in' && stats.slow > 0 && lvl !== 6) finalSpeed = speed * (1 - stats.slow);
     
-    projs.push({x, y: P.y, vx: -finalSpeed, sz: 10, active: true, type, dmg: customDamage, color: color});
+    // Fix type for boss_reverse
+    const finalType = (type === 'boss_reverse') ? 'in' : type;
+    
+    projs.push({x, y: P.y, vx: -finalSpeed, sz: 10, active: true, type: finalType, dmg: customDamage, color: color});
 }
 
 function spawn() {
@@ -804,10 +813,10 @@ function useSwordAbility() {
         return false;
     }
     
-// Time Blade special ability (works on ALL bosses)
-if (activeSword === 'time') {
-    return useTimeBlade();
-}
+    // Time Blade special ability (works on ALL bosses)
+    if (activeSword === 'time') {
+        return useTimeBlade();
+    }
     
     if (swordCooldown > 0) {
         const secondsLeft = Math.ceil(swordCooldown / 60);
@@ -833,6 +842,7 @@ if (activeSword === 'time') {
     swordCooldown = swordCooldownMax;
     
     let buffText = `⚔️ ${sword.name} activated for 3 seconds! ⚔️`;
+    if (sword.buffSlow) buffText = `⚔️ ${sword.name} activated! +${sword.buffSlow * 100}% slow for 3 seconds! ⚔️`;
     document.getElementById('drop-alert').innerHTML = buffText;
     setTimeout(() => { 
         if (document.getElementById('drop-alert').innerHTML === buffText) 
@@ -1259,7 +1269,7 @@ function update() {
     }
     parryMessages = parryMessages.filter(m => m.life > 0);
     
-    // HALFWAY POINT REVERSAL FOR ALL BOSSES (from Temporal Barrier and Chronos Crown)
+    // HALFWAY POINT REVERSAL FOR ALL BOSSES (from Temporal Barrier and Chronos Crown + Time Blade)
     const reverseChance = getReverseChance();
     if (reverseChance > 0) {
         for (let i = 0; i < projs.length; i++) {
@@ -1280,17 +1290,23 @@ function update() {
         }
     }
     
-    // Time Blade active effect (only for Timekeeper)
-// Time Blade active effect (works on ALL bosses)
-    if (timekeeperSwordActive) {
+    // BOSS REVERSAL - Timekeeper only: 25% chance to reverse YOUR reflected ball back at you
+    if (lvl === 6 && !over) {
         for (let i = 0; i < projs.length; i++) {
             const p = projs[i];
-            if (p.active && p.type === 'in' && p.x <= HALFWAY && !p.markedForReverse) {
-                p.markedForReverse = true;
-                p.vx = Math.abs(p.vx) * 1.2;
-                p.type = 'reflect';
-                p.color = PLAYER_COLOR;
-            }   
+            if (p.active && p.type === 'reflect' && p.x <= HALFWAY && p.x >= HALFWAY - 5 && !p.markedForBossReverse) {
+                if (Math.random() < 0.25) { // 25% chance
+                    p.markedForBossReverse = true;
+                    p.active = false; // Remove the original
+                    // Create a new fast projectile coming back at player
+                    addProjectile(12, 'boss_reverse', p.x, p.dmg);
+                    document.getElementById('drop-alert').innerHTML = "⏰ TIMEKEEPER REVERSED YOUR SHOT! ⏰";
+                    setTimeout(() => {
+                        if (document.getElementById('drop-alert').innerHTML === "⏰ TIMEKEEPER REVERSED YOUR SHOT! ⏰")
+                            document.getElementById('drop-alert').innerHTML = "";
+                    }, 800);
+                }
+            }
         }
     }
     
